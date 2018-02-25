@@ -23,7 +23,7 @@
 #include <sys/mman.h>
 #include <time.h>
 
-#ifdef DEBUG
+#ifdef DRI_DEBUG
 #define PERROR perror
 #define PRINTF printf
 #else
@@ -234,11 +234,11 @@ static void cairo_dri_surface_destroy(void *data)
     return;
 
   /* If current fb is mapped, restored saved fb */
-  printf ("Destroying surface with fb : %d\n", fb->fb_id);
+  PRINTF ("Destroying surface with fb : %d\n", fb->fb_id);
   crtc.crtc_id = fb->screen->crtc;
   if (ioctl(fb->dri->dri_fd, DRM_IOCTL_MODE_GETCRTC, &crtc) == 0) {
     if (crtc.fb_id == fb->fb_id) {
-      printf ("Currently displayed FB, restoring saved one\n");
+      PRINTF ("Currently displayed FB, restoring saved one\n");
       crtc = fb->screen->saved_crtc;
       crtc.set_connectors_ptr = (uint64_t)&fb->screen->conn;
       crtc.count_connectors = 1;
@@ -305,7 +305,7 @@ cairo_dri_create_surface(cairo_dri_t *dri, dri_screen_t *screen)
   fb->fb_id = cmd_dumb.fb_id;
   fb->screen = screen;
 
-  printf ("Created framebuffer %p of size %d (%dx%d) with id %d\n", fb->fb_data,
+  PRINTF ("Created framebuffer %p of size %d (%dx%d) with id %d\n", fb->fb_data,
       fb->size, fb->screen->mode.hdisplay, fb->screen->mode.vdisplay, fb->fb_id);
   /* Create the cairo surface which will be used to draw to */
   surface = cairo_image_surface_create_for_data(fb_data,

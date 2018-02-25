@@ -407,6 +407,15 @@ cairo_menu_new (cairo_surface_t *surface, int rows, int columns,
       NULL, NULL, NULL);
 }
 
+cairo_surface_t *
+cairo_menu_scale_or_reference_surface (cairo_surface_t *surface, int width, int height)
+{
+  /* int ref_width, ref_height;
+
+  cairo_utils_get_surface_size (surface, &ref_width, &ref_height);
+  if (ref_width == width && ref_height == height)*/
+  return cairo_surface_reference (surface);
+}
 int
 cairo_menu_add_item_full (CairoMenu *menu, cairo_surface_t *image,
     CairoMenuImagePosition image_position, const char *text, int text_size,
@@ -455,8 +464,8 @@ cairo_menu_add_item_full (CairoMenu *menu, cairo_surface_t *image,
   if (bg_sel_image == NULL)
     bg_sel_image = menu->bg_sel_image;
 
-  item->bg_image = cairo_surface_reference (bg_image);
-  item->bg_sel_image = cairo_surface_reference (bg_sel_image);
+  item->bg_image = cairo_menu_scale_or_reference_surface (bg_image, width, height);
+  item->bg_sel_image = cairo_menu_scale_or_reference_surface (bg_sel_image, width, height);
 
   if (image != NULL)
     cairo_menu_set_item_image (menu, item->index, image, image_position);
@@ -667,6 +676,9 @@ cairo_menu_handle_input (CairoMenu *menu, CairoMenuInput input,
   int new_selection;
   int previous_selection;
 
+  if (menu->items == NULL)
+    return -1;
+
   old_start_item = menu->start_item;
   old_selection = new_selection = previous_selection = menu->selection;
 
@@ -697,8 +709,17 @@ cairo_menu_handle_input (CairoMenu *menu, CairoMenuInput input,
 void
 cairo_menu_set_selection (CairoMenu *menu, int id, CairoMenuRectangle *bbox)
 {
-  /* TODO: Implement this some day... */
-  assert ("Not implemented" == NULL);
+
+  if (menu->items[id].enabled == FALSE)
+    return;
+
+  menu->selection = id;
+  //TODO : menu->start_item = old_start_item;
+
+  cairo_menu_redraw (menu);
+  bbox->x = 0;
+  bbox->y = 0;
+  cairo_utils_get_surface_size (menu->surface, &bbox->width, &bbox->height);
 }
 
 void

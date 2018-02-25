@@ -44,6 +44,27 @@
 
 static volatile sig_atomic_t cancel = 0;
 
+typedef struct {
+  char *tag;
+  char *item;
+} whiptail_menu_item;
+
+typedef struct {
+  char *title;
+  char *backtitle;
+  char *text;
+  char *default_item;
+  int noitem;
+  int notags;
+  int topleft;
+  int output_fd;
+  int width;
+  int height;
+  int menu_height;
+  whiptail_menu_item *items;
+  int num_items;
+} whiptail_args;
+
 void signal_handler(int signum)
 {
 	cancel = 1;
@@ -69,6 +90,117 @@ static int handle_input(Menu *menu, short code)
     return (bbox.width * bbox.height) != 0;
 }
 
+int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
+{
+  int i;
+  int end_of_args = 0, menu = 0;
+
+  /*
+  static whiptail_menu_item items[] = {
+    {"first", "menu entry 1"},
+    {"second", "blablabla"},
+    {"foo", "bar"},
+    {"default", "item"},
+    {"usb1", "usb boot"},
+    {"linux2", "Linux boot"},
+    {"etc..", "you get the idea"},
+  };
+  args->title = "Whiptail test menu";
+  args->backtitle = "background title";
+  args->text = "some text to show in frame?";
+  args->default_item = "default";
+  args->noitem = 0;
+  args->notags = 0;
+  args->topleft = 0;
+  args->output_fd = 2;
+  args->width = 600;
+  args->height = 400;
+  args->menu_height = 10;
+  args->items = items;
+  args->num_items = 7;
+  */
+  memset (args, 0, sizeof(whiptail_args));
+  args->output_fd = 2;
+
+  for (i = 1; i < argc; i++) {
+    if (end_of_args == 0 && strncmp (argv[i], "--", 2) == 0) {
+      if (strcmp (argv[i], "--title") == 0) {
+        i++;
+        if (i >= argc)
+          goto error;
+        args->title = argv[i];
+      } else if (strcmp (argv[i], "--backtitle") == 0) {
+        i++;
+        if (i >= argc)
+          goto error;
+        args->backtitle = argv[i];
+      } else if (strcmp (argv[i], "--default-item") == 0) {
+        i++;
+        if (i >= argc)
+          goto error;
+        args->default_item = argv[i];
+      } else if (strcmp (argv[i], "--output-fd") == 0) {
+        i++;
+        if (i >= argc)
+          goto error;
+        args->output_fd = atoi (argv[i]);
+      }else if (strcmp (argv[i], "--noitem") == 0) {
+        args->noitem = 1;
+      } else if (strcmp (argv[i], "--notags") == 0) {
+        args->notags = 1;
+      } else if (strcmp (argv[i], "--topleft") == 0) {
+        args->topleft = 1;
+      } else if (menu == 0 && strcmp (argv[i], "--menu") == 0) {
+        if (i + 4 >= argc)
+          goto error;
+        args->text = argv[i+1];
+        args->height = atoi (argv[i+2]);
+        args->width = atoi (argv[i+3]);
+        args->menu_height = atoi (argv[i+4]);
+        i += 4;
+        menu = 1;
+        args->items = malloc (sizeof(whiptail_menu_item) * (argc - i) / 2);
+      } else if (strcmp (argv[i], "--") == 0) {
+        end_of_args = 1;
+      } else if (strcmp (argv[i], "--yes-button") == 0 ||
+                 strcmp (argv[i], "--no-button") == 0 ||
+                 strcmp (argv[i], "--ok-button") == 0 ||
+                 strcmp (argv[i], "--cancel-button") == 0) {
+        i++;
+        if (i >= argc)
+          goto error;
+        // Ignore arguments
+      } else if (strcmp (argv[i], "--clear") == 0 ||
+          strcmp (argv[i], "--fb") == 0 ||
+          strcmp (argv[i], "--fullbuttons") == 0 ||
+          strcmp (argv[i], "--defaultno") == 0 ||
+          strcmp (argv[i], "--nocancel") == 0 ||
+          strcmp (argv[i], "--scrolltext") == 0 ||
+          strcmp (argv[i], "--separate-output") == 0 ||
+          strcmp (argv[i], "--help") == 0 ||
+          strcmp (argv[i], "--version") == 0) {
+        // Ignore arguments
+      }
+    } else if (menu) {
+      if (i + 1 >= argc)
+        goto error;
+
+      args->items[args->num_items].tag = argv[i++];
+      args->items[args->num_items].item = argv[i];
+      args->num_items++;
+    } else {
+      goto error;
+    }
+  }
+  if (menu == 0 || args->num_items == 0)
+    goto error;
+  return 0;
+ error:
+  if (args->items)
+    free (args->items);
+  return -1;
+}
+
 int main(int argc, char **argv)
 {
   struct sigaction action;
@@ -79,6 +211,8 @@ int main(int argc, char **argv)
   int xres, yres;
   Menu *menu = NULL;
   int redraw = 1;
+  whiptail_args args;
+  int default_selection;
   cairo_t *cr;
 #ifdef USE_LINUXFB
   cairo_surface_t *fbsurface = NULL;
@@ -88,6 +222,11 @@ int main(int argc, char **argv)
   cairo_t *crs[2] = {NULL, NULL};
   int current_fb = 0;
 #endif
+
+  if (parse_whiptail_args (argc, argv, &args) != 0) {
+    printf ("Invalid arguments received\n");
+    return -1;
+  }
 
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler = signal_handler;
@@ -108,13 +247,7 @@ int main(int argc, char **argv)
   cr = cairo_create(fbsurface);
 #else
   dri = cairo_dri_open("/dev/dri/card0");
-  printf ("Got DRI %p with %d screens : \n", dri, dri? dri->num_screens : 0);
   if (dri && dri->num_screens > 0) {
-    for (i = 0; i < dri->num_screens; i++) {
-      printf (" %d: %dx%d on connector %d using crtc %d\n", i,
-          dri->screens[i].mode.hdisplay, dri->screens[i].mode.vdisplay,
-          dri->screens[i].conn, dri->screens[i].crtc);
-    }
     xres = dri->screens[0].mode.hdisplay;
     yres = dri->screens[0].mode.vdisplay;
     surfaces[0] = cairo_dri_create_surface(dri, &dri->screens[0]);
@@ -124,65 +257,51 @@ int main(int argc, char **argv)
   }
 #endif
 
-  menu = standard_menu_create ("Frambuffer Cairo menu", xres, yres);
+  /*
+  menu = standard_menu_create (args.title, xres, yres,
+      -1, (args.noitem || args.notags) ? 1 : 2);
 
-  idx = standard_menu_add_item (menu, "TOP LEFT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_LEFT;
-  idx = standard_menu_add_item (menu, "TOP CENTER", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_CENTER;
-  idx = standard_menu_add_item (menu, "TOP RIGHT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_RIGHT;
-  idx = standard_menu_add_item (menu, "MIDDLE LEFT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
-  idx = standard_menu_add_item (menu, "MIDDLE CENTER", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_CENTER;
-  idx = standard_menu_add_item (menu, "MIDDLE RIGHT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
-  idx = standard_menu_add_item (menu, "BOTTOM LEFT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_LEFT;
-  idx = standard_menu_add_item (menu, "BOTTOM CENTER", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_CENTER;
-  idx = standard_menu_add_item (menu, "BOTTOM RIGHT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_RIGHT;
-  idx = standard_menu_add_item (menu, "Pattern", 15);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
-  image = cairo_image_surface_create_from_png ("pattern.png");
-  cairo_menu_set_item_image (menu->menu, idx, image, CAIRO_MENU_IMAGE_POSITION_RIGHT);
-  cairo_surface_destroy (image);
-  idx = standard_menu_add_item (menu, "Rectangles", 15);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
-  image = cairo_image_surface_create_from_png ("rect.png");
-  cairo_menu_set_item_image (menu->menu, idx, image, CAIRO_MENU_IMAGE_POSITION_LEFT);
-  cairo_surface_destroy (image);
-  standard_menu_add_item (menu, "Hello world 3", 20);
-  standard_menu_add_item (menu, "Hello world 4", 20);
-  standard_menu_add_item (menu, "Hello world 5", 20);
-  standard_menu_add_item (menu, "Hello world 6", 20);
-  standard_menu_add_item (menu, "Hello world 7", 20);
-  standard_menu_add_item (menu, "Hello world 8", 20);
-  standard_menu_add_item (menu, "Hello world 9", 20);
-  standard_menu_add_item (menu, "Hello world 10", 15);
-  standard_menu_add_item (menu, "Hello world 11", 5);
-  standard_menu_add_item (menu, "Hello world 12", 5);
-  standard_menu_add_item (menu, "Hello world 13", 5);
-  standard_menu_add_item (menu, "Hello world 14", 5);
-  standard_menu_add_item (menu, "Hello world 5", 15);
-  standard_menu_add_item (menu, "Hello world 1", 10);
-  standard_menu_add_item (menu, "Hello world 2", 10);
-  standard_menu_add_item (menu, "Hello world 3", 10);
-  standard_menu_add_item (menu, "Hello world 4", 10);
-  standard_menu_add_item (menu, "Hello world 5", 10);
-  standard_menu_add_item (menu, "Hello world 6", 10);
-  standard_menu_add_item (menu, "Hello world 7", 10);
-  standard_menu_add_item (menu, "Hello world 8", 10);
-  standard_menu_add_item (menu, "Hello world 9", 10);
-  standard_menu_add_item (menu, "Hello world 10", 10);
-  standard_menu_add_item (menu, "Hello world 11", 10);
-  standard_menu_add_item (menu, "Hello world 12", 10);
-  standard_menu_add_item (menu, "Hello world 13", 10);
-  standard_menu_add_item (menu, "Hello world 14", 10);
-  standard_menu_add_item (menu, "Hello world 15", 10);
+  for (i = 0; i < args.num_items; i++) {
+    if (args.notags == 0) {
+      idx = standard_menu_add_tag (menu, args.items[i].tag, 10);
+      if (1 || args.noitem)
+        menu->menu->items[idx].enabled = 1;
+    }
+    if (args.noitem == 0) {
+      idx = standard_menu_add_item (menu, args.items[i].item, 20);
+    }
+    if (args.default_item && strcmp (args.default_item, args.items[i].item) == 0) {
+      CairoMenuRectangle bbox;
+      cairo_menu_set_selection (menu->menu, idx, &bbox);
+    }
+  }
+  */
 
+  menu = standard_menu_create (args.title, xres, yres,-1, 1);
+
+  idx = standard_menu_add_item (menu, args.text, 15);
+  menu->menu->items[idx].enabled = 0;
+  for (i = 0; i < args.num_items; i++) {
+    char *text;
+    whiptail_menu_item *item = &args.items[i];
+    if (args.notags || args.noitem) {
+      text = malloc ((args.notags ? strlen (item->item) : strlen (item->tag)) + 1);
+      strcpy (text, args.notags ? item->item : item->tag);
+    } else {
+      text = malloc (strlen (item->item) + strlen (item->tag) + 1 + 3);
+      strcpy (text, args.notags ? item->item : item->tag);
+      strcat (text, " - ");
+      strcat (text, item->item);
+    }
+    idx = standard_menu_add_item (menu, text, 20);
+    menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
+    free (text);
+    if (i == 0 ||
+        (args.default_item && strcmp (args.default_item, item->tag) == 0)) {
+      CairoMenuRectangle bbox;
+      cairo_menu_set_selection (menu->menu, idx, &bbox);
+    }
+  }
   while (!cancel) {
     char c;
 
@@ -204,14 +323,17 @@ int main(int argc, char **argv)
 
     switch (c = getchar ()) {
       case 0x1B: // Escape character
-        escape = 1;
+        if (escape == 0)
+          escape = 1;
+        else
+          cancel = 1;
         break;
       case 0xA:
         if (escape == 0) {
-          printf ("Selection is %d: %s\n", menu->menu->selection,
-              menu->menu->items[menu->menu->selection].text);
           cancel = 1;
+          fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
         }
+        escape = 0;
         break;
       case 0x41:
       case 0x42:
@@ -221,6 +343,8 @@ int main(int argc, char **argv)
           redraw = handle_input (menu, c);
         }
       default:
+        if (escape == 0) {
+        }
         if (escape == 1) {
           escape = 2;
         } else {

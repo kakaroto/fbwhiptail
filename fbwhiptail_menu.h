@@ -73,7 +73,8 @@ struct Menu_s {
 #define MAIN_MENU_FONT_SIZE 15
 
 void draw_background (Menu *menu, cairo_t *cr);
-Menu *standard_menu_create (const char *title, int width, int height);
+Menu *standard_menu_create (const char *title, int width, int height, int rows, int columns);
 int standard_menu_add_item (Menu *menu, const char *title, int fontsize);
+int standard_menu_add_tag (Menu *menu, const char *title, int fontsize);
 
 #endif

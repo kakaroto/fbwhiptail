@@ -74,8 +74,6 @@ create_standard_menu_frame (Menu *menu)
   cairo_t *cr;
   int x, y;
 
-  printf ("Creating %s frame\n", menu->title);
-
   /* Adapt frame height depending on items in the menu */
   width = STANDARD_MENU_FRAME_WIDTH;
   height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
@@ -171,7 +169,6 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
   cairo_set_source_rgb (cr, 0, 0, 0);
   cairo_paint_with_alpha (cr, 0.5);
 
-  printf ("Drawing menu\n");
   cairo_set_source_surface (cr, surface, 0, 0);
   cairo_paint (cr);
   cairo_restore (cr);
@@ -229,13 +226,14 @@ create_standard_background (float r, float g, float b) {
 }
 
 Menu *
-standard_menu_create (const char *title, int width, int height)
+standard_menu_create (const char *title, int width, int height, int rows, int columns)
 {
   cairo_surface_t *surface;
   cairo_surface_t *background, *selected_background, *disabled;
   cairo_t *cr;
   Menu * menu = malloc (sizeof(Menu));
 
+  memset (menu, 0, sizeof(Menu));
   menu->draw = draw_standard_menu;
   menu->title = title;
   menu->width = width;
@@ -261,7 +259,7 @@ standard_menu_create (const char *title, int width, int height)
   surface = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32,
       STANDARD_MENU_WIDTH, STANDARD_MENU_HEIGHT);
   /* Infinite vertical scrollable menu */
-  menu->menu = cairo_menu_new_full (surface, -1, 1,
+  menu->menu = cairo_menu_new_full (surface, rows, columns,
       STANDARD_MENU_ITEM_BOX_WIDTH, STANDARD_MENU_ITEM_BOX_HEIGHT,
       STANDARD_MENU_PAD_X, STANDARD_MENU_PAD_Y, 0,
       background, selected_background, disabled);
@@ -271,6 +269,16 @@ standard_menu_create (const char *title, int width, int height)
   cairo_surface_destroy (disabled);
 
   return menu;
+}
+
+int
+standard_menu_add_tag (Menu *menu, const char *title, int fontsize)
+{
+  return cairo_menu_add_item_full (menu->menu, NULL, CAIRO_MENU_IMAGE_POSITION_LEFT, title,
+      fontsize, CAIRO_MENU_DEFAULT_TEXT_COLOR, CAIRO_MENU_ALIGN_MIDDLE_CENTER,
+      menu->menu->default_item_width / 2, menu->menu->default_item_height,
+      STANDARD_MENU_ITEM_IPAD_X, STANDARD_MENU_ITEM_IPAD_Y, FALSE,
+      NULL, NULL, NULL, NULL);
 }
 
 int
