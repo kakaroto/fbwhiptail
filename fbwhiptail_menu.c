@@ -54,6 +54,39 @@ create_gradient_background (int width, int height,
   return background;
 }
 
+cairo_surface_t *
+load_image_and_scale (char *path, int width, int height)
+{
+  cairo_surface_t *image = NULL;
+  cairo_surface_t *surface = NULL;
+
+  image = cairo_image_surface_create_from_png (path);
+  if (image) {
+    cairo_t *cr;
+    int img_width, img_height;
+
+    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+        width, height);
+    cr = cairo_create (surface);
+
+    cairo_utils_get_surface_size (image, &img_width, &img_height);
+
+    cairo_scale (cr, (float) width / img_width, (float) height / img_height);
+    cairo_set_source_surface (cr, image, 0, 0);
+
+    /* Avoid getting the edge blended with 0 alpha */
+    cairo_pattern_set_extend (cairo_get_source(cr), CAIRO_EXTEND_PAD);
+
+    /* Replace the destination with the source instead of overlaying */
+    cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
+    cairo_paint (cr);
+    cairo_destroy (cr);
+  }
+
+  return surface;
+}
+
+
 void
 draw_background (Menu *menu, cairo_t *cr)
 {

@@ -58,6 +58,9 @@ typedef struct {
   int menu_height;
   whiptail_menu_item *items;
   int num_items;
+  // FBwhiptail arguments
+  char *background_png;
+  float background_grad_rgb[6];
 } whiptail_args;
 
 
@@ -105,6 +108,7 @@ typedef struct {
 cairo_surface_t *create_gradient_background (int width, int height,
     float start_r, float start_g, float start_b,
     float end_r, float end_g, float end_b);
+cairo_surface_t *load_image_and_scale (char *path, int width, int height);
 void draw_background (Menu *menu, cairo_t *cr);
 Menu *standard_menu_create (const char *title, int width, int height, int rows, int columns);
 int standard_menu_add_item (Menu *menu, const char *title, int fontsize);

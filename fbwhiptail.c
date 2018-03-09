@@ -51,6 +51,7 @@
 #include "cairo_dri.h"
 #endif
 
+#define VERSION_STRING "0.0.1"
 
 #ifdef GTKWHIPTAIL
 
@@ -174,9 +175,63 @@ static int handle_input(Menu *menu)
 
 #endif
 
-void usage (int exit_code)
+void print_version (int exit_code)
 {
-  printf ("Usage :\n");
+  printf ("Framebuffer Whiptail (fbwhiptail): %s\n", VERSION_STRING);
+  exit (exit_code);
+}
+
+void print_usage (int exit_code)
+{
+  printf ("Box options: \n");
+  printf ("\t--msgbox <text> <height> <width>\n");
+  printf ("\t\tThis option is not yet supported\n");
+  printf ("\t--yesno  <text> <height> <width>\n");
+  printf ("\t\tThis option is not yet supported\n");
+  printf ("\t--infobox <text> <height> <width>\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--inputbox <text> <height> <width> [init] \n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--passwordbox <text> <height> <width> [init] \n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--textbox <file> <height> <width>\n");
+  printf ("\t\tThis option is not yet supported\n");
+  printf ("\t--menu <text> <height> <width> <listheight> [tag item] ...\n");
+  printf ("\t--checklist <text> <height> <width> <listheight> [tag item status]...\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--radiolist <text> <height> <width> <listheight> [tag item status]...\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--gauge <text> <height> <width> <percent>\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("Options: (depend on box-option)\n");
+  printf ("\t--clear\t\t\t\tclear screen on exit\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--defaultno\t\t\tdefault no button\n");
+  printf ("\t--default-item <string>\t\tset default string\n");
+  printf ("\t--fb, --fullbuttons\t\tuse full buttons\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--nocancel\t\t\tno cancel button\n");
+  printf ("\t--yes-button <text>\t\tset text of yes button\n");
+  printf ("\t--no-button <text>\t\tset text of no button\n");
+  printf ("\t--ok-button <text>\t\tset text of ok button\n");
+  printf ("\t--cancel-button <text>\t\tset text of cancel button\n");
+  printf ("\t--noitem\t\t\tdon't display items\n");
+  printf ("\t--notags\t\t\tdon't display tags\n");
+  printf ("\t--separate-output\t\toutput one line at a time\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--output-fd <fd>\t\toutput to fd, not stdout\n");
+  printf ("\t--title <title>\t\t\tdisplay title\n");
+  printf ("\t--backtitle <backtitle>\t\tdisplay backtitle\n");
+  printf ("\t--scrolltext\t\t\tforce vertical scrollbars\n");
+  printf ("\t\tThis option is not supported\n");
+  printf ("\t--topleft\t\t\tput window in top-left corner\n");
+  printf ("\t-h, --help\t\t\tprint this message\n");
+  printf ("\t-v, --version\t\t\tprint version information\n");
+  printf ("Frambuffer options:\n");
+  printf ("\t--background-png <file>\t\tDisplay PNG image as background\n");
+  printf ("\t--background-gradient <start red> <start green> <start blue> <end red> <end green> <end blue>\n");
+  printf ("\t\t\t\t\tGenerate a linear gradient background from left to right\n");
+
   exit (exit_code);
 }
 
@@ -189,29 +244,33 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
   args->output_fd = 2;
 
   for (i = 1; i < argc; i++) {
+    if (end_of_args == 0 && strcmp (argv[i], "-h") == 0) {
+        print_usage (0);
+    }
+    if (end_of_args == 0 && strcmp (argv[i], "-v") == 0) {
+        print_version (0);
+    }
     if (end_of_args == 0 && strncmp (argv[i], "--", 2) == 0) {
       if (strcmp (argv[i], "--help") == 0) {
-        usage (0);
+        print_usage (0);
+      } else if (strcmp (argv[i], "--version") == 0) {
+        print_version (0);
       } else if (strcmp (argv[i], "--title") == 0) {
-        i++;
-        if (i >= argc)
-          goto error;
-        args->title = argv[i];
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->title = argv[++i];
       } else if (strcmp (argv[i], "--backtitle") == 0) {
-        i++;
-        if (i >= argc)
-          goto error;
-        args->backtitle = argv[i];
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->backtitle = argv[++i];
       } else if (strcmp (argv[i], "--default-item") == 0) {
-        i++;
-        if (i >= argc)
-          goto error;
-        args->default_item = argv[i];
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->default_item = argv[++i];
       } else if (strcmp (argv[i], "--output-fd") == 0) {
-        i++;
-        if (i >= argc)
-          goto error;
-        args->output_fd = atoi (argv[i]);
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->output_fd = atoi (argv[++i]);
       }else if (strcmp (argv[i], "--noitem") == 0) {
         args->noitem = 1;
       } else if (strcmp (argv[i], "--notags") == 0) {
@@ -220,7 +279,7 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->topleft = 1;
       } else if (menu == 0 && strcmp (argv[i], "--menu") == 0) {
         if (i + 4 >= argc)
-          goto error;
+          goto missing_value;
         args->text = argv[i+1];
         args->height = atoi (argv[i+2]);
         args->width = atoi (argv[i+3]);
@@ -234,9 +293,9 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
                  strcmp (argv[i], "--no-button") == 0 ||
                  strcmp (argv[i], "--ok-button") == 0 ||
                  strcmp (argv[i], "--cancel-button") == 0) {
+        if (i + 1 >= argc)
+          goto missing_value;
         i++;
-        if (i >= argc)
-          goto error;
         // Ignore unsupported whiptail arguments
       } else if (strcmp (argv[i], "--clear") == 0 ||
           strcmp (argv[i], "--fb") == 0 ||
@@ -247,6 +306,26 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
           strcmp (argv[i], "--separate-output") == 0 ||
           strcmp (argv[i], "--version") == 0) {
         // Ignore unsupported whiptail arguments
+      } else if (strcmp (argv[i], "--background-png") == 0) {
+        // FBwhiptail specific arguments
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->background_png = argv[++i];
+      } else if (strcmp (argv[i], "--background-gradient") == 0) {
+        // FBwhiptail specific arguments
+        if (i + 6 >= argc)
+          goto missing_value;
+
+        args->background_grad_rgb[0] = (float) atoi (argv[i+1]) / 256;
+        args->background_grad_rgb[1] = (float) atoi (argv[i+2]) / 256;
+        args->background_grad_rgb[2] = (float) atoi (argv[i+3]) / 256;
+        args->background_grad_rgb[3] = (float) atoi (argv[i+4]) / 256;
+        args->background_grad_rgb[4] = (float) atoi (argv[i+5]) / 256;
+        args->background_grad_rgb[5] = (float) atoi (argv[i+6]) / 256;
+        i += 6;
+      } else {
+        printf ("Unknown argument : '%s'\n", argv[i]);
+        goto error;
       }
     } else if (menu) {
       if (i + 1 >= argc)
@@ -262,6 +341,9 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
   if (menu == 0 || args->num_items == 0)
     goto error;
   return 0;
+ missing_value:
+  printf ("Not enough values to argument : '%s'\n", argv[i]);
+  goto error;
  error:
   if (args->items)
     free (args->items);
@@ -291,7 +373,7 @@ int main(int argc, char **argv)
 
   if (parse_whiptail_args (argc, argv, &args) != 0) {
     printf ("Invalid arguments received\n");
-    usage (-1);
+    print_usage (-1);
     return -1;
   }
 
@@ -385,13 +467,20 @@ int main(int argc, char **argv)
       cairo_menu_set_selection (menu->menu, idx, &bbox);
     }
   }
+  if (args.background_png)
+    menu->background = load_image_and_scale (args.background_png, xres, yres);
+  if (menu->background == NULL)
+    menu->background = create_gradient_background (xres, yres,
+        args.background_grad_rgb[0], args.background_grad_rgb[1],
+        args.background_grad_rgb[2], args.background_grad_rgb[3],
+        args.background_grad_rgb[4], args.background_grad_rgb[5]);
 
 #ifdef GTKWHIPTAIL
   g_signal_connect (G_OBJECT (window), "delete-event",
       G_CALLBACK (gtk_main_quit), NULL);
   g_signal_connect (G_OBJECT (area), "expose-event", G_CALLBACK (draw), menu);
     gtk_signal_connect(GTK_OBJECT(window), "key_press_event",
-		       GTK_SIGNAL_FUNC(key_event), menu);
+        GTK_SIGNAL_FUNC(key_event), menu);
   gtk_main ();
   if (result)
     fprintf (stderr, "%s", args.items[menu->menu->selection-1].tag);
