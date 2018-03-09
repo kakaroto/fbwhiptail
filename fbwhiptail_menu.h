@@ -38,6 +38,29 @@ struct Menu_s {
   void (*draw) (Menu *menu, cairo_t *cr);
 };
 
+typedef struct {
+  char *tag;
+  char *item;
+} whiptail_menu_item;
+
+typedef struct {
+  // Whiptail arguments
+  char *title;
+  char *backtitle;
+  char *text;
+  char *default_item;
+  int noitem;
+  int notags;
+  int topleft;
+  int output_fd;
+  int width;
+  int height;
+  int menu_height;
+  whiptail_menu_item *items;
+  int num_items;
+} whiptail_args;
+
+
 #define STANDARD_MENU_ITEM_WIDTH (600)
 #define STANDARD_MENU_ITEM_HEIGHT 60
 #define STANDARD_MENU_PAD_X 10
@@ -72,6 +95,16 @@ struct Menu_s {
 #define STANDARD_MENU_TITLE_FONT_SIZE 25
 #define MAIN_MENU_FONT_SIZE 15
 
+#define BACKGROUND_GRADIENT_START_R 0
+#define BACKGROUND_GRADIENT_START_G 0.3
+#define BACKGROUND_GRADIENT_START_B 0.8
+#define BACKGROUND_GRADIENT_END_R 0
+#define BACKGROUND_GRADIENT_END_G 0.8
+#define BACKGROUND_GRADIENT_END_B 0.3
+
+cairo_surface_t *create_gradient_background (int width, int height,
+    float start_r, float start_g, float start_b,
+    float end_r, float end_g, float end_b);
 void draw_background (Menu *menu, cairo_t *cr);
 Menu *standard_menu_create (const char *title, int width, int height, int rows, int columns);
 int standard_menu_add_item (Menu *menu, const char *title, int fontsize);

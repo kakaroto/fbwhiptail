@@ -29,38 +29,38 @@
 
 #include "fbwhiptail_menu.h"
 
+cairo_surface_t *
+create_gradient_background (int width, int height,
+    float start_r, float start_g, float start_b,
+    float end_r, float end_g, float end_b)
+{
+  cairo_surface_t * background = NULL;
+  cairo_pattern_t *linpat = NULL;
+  cairo_t *grad_cr = NULL;
+
+  background = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+
+  linpat = cairo_pattern_create_linear (0, 0, width, height);
+  cairo_pattern_add_color_stop_rgb (linpat, 0, start_r, start_g, start_b);
+  cairo_pattern_add_color_stop_rgb (linpat, 1, end_r, end_g, end_b);
+
+  grad_cr = cairo_create (background);
+  cairo_set_source (grad_cr, linpat);
+  cairo_paint (grad_cr);
+  cairo_destroy (grad_cr);
+  cairo_pattern_destroy (linpat);
+  cairo_surface_flush (background);
+
+  return background;
+}
+
 void
 draw_background (Menu *menu, cairo_t *cr)
 {
-  /* Pre-cache the gradient background pattern into a cairo image surface.
-   * The cairo_pattern is a vector basically, so when painting the gradient
-   * into our surface, it needs to rasterize it, which makes the FPS drop
-   * to 6 or 7 FPS and makes the game unusable (misses controller input, and
-   * animations don't work anymore). So by pre-rasterizing it into an
-   * image surface, we can do the background paint very quickly and FPS should
-   * stay at 60fps or if we miss the VSYNC, drop to 30fps.
-   */
-  if (menu->background == NULL) {
-    cairo_pattern_t *linpat = NULL;
-    cairo_t *grad_cr = NULL;
-
-    menu->background = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-        menu->width, menu->height);
-
-    linpat = cairo_pattern_create_linear (0, 0,
-        menu->width, menu->height);
-    cairo_pattern_add_color_stop_rgb (linpat, 0, 0, 0.3, 0.8);
-    cairo_pattern_add_color_stop_rgb (linpat, 1, 0, 0.8, 0.3);
-
-    grad_cr = cairo_create (menu->background);
-    cairo_set_source (grad_cr, linpat);
-    cairo_paint (grad_cr);
-    cairo_destroy (grad_cr);
-    cairo_pattern_destroy (linpat);
-    cairo_surface_flush (menu->background);
+  if (menu->background) {
+    cairo_set_source_surface (cr, menu->background, 0, 0);
+    cairo_paint (cr);
   }
-  cairo_set_source_surface (cr, menu->background, 0, 0);
-  cairo_paint (cr);
 }
 
 static void
