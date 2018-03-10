@@ -238,10 +238,12 @@ void print_usage (int exit_code)
 int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
 {
   int i;
-  int end_of_args = 0, menu = 0;
+  int end_of_args = 0;
 
   memset (args, 0, sizeof(whiptail_args));
   args->output_fd = 2;
+  args->yes_button = "Yes";
+  args->no_button = "No";
 
   for (i = 1; i < argc; i++) {
     if (end_of_args == 0 && strcmp (argv[i], "-h") == 0) {
@@ -277,7 +279,9 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->notags = 1;
       } else if (strcmp (argv[i], "--topleft") == 0) {
         args->topleft = 1;
-      } else if (menu == 0 && strcmp (argv[i], "--menu") == 0) {
+      } else if (strcmp (argv[i], "--menu") == 0) {
+        if (args->mode != MODE_NONE)
+          goto mode_already_set;
         if (i + 4 >= argc)
           goto missing_value;
         args->text = argv[i+1];
@@ -285,13 +289,29 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->width = atoi (argv[i+3]);
         args->menu_height = atoi (argv[i+4]);
         i += 4;
-        menu = 1;
+        args->mode = MODE_MENU;
         args->items = malloc (sizeof(whiptail_menu_item) * (argc - i) / 2);
+      } else if (strcmp (argv[i], "--yesno") == 0) {
+        if (args->mode != MODE_NONE)
+          goto mode_already_set;
+        if (i + 3 >= argc)
+          goto missing_value;
+        args->text = argv[i+1];
+        args->height = atoi (argv[i+2]);
+        args->width = atoi (argv[i+3]);
+        i += 3;
+        args->mode = MODE_YESNO;
       } else if (strcmp (argv[i], "--") == 0) {
         end_of_args = 1;
-      } else if (strcmp (argv[i], "--yes-button") == 0 ||
-                 strcmp (argv[i], "--no-button") == 0 ||
-                 strcmp (argv[i], "--ok-button") == 0 ||
+      } else if (strcmp (argv[i], "--yes-button") == 0) {
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->yes_button = argv[++i];
+      } else if (strcmp (argv[i], "--no-button") == 0) {
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->no_button = argv[++i];
+      } else if (strcmp (argv[i], "--ok-button") == 0 ||
                  strcmp (argv[i], "--cancel-button") == 0) {
         if (i + 1 >= argc)
           goto missing_value;
@@ -327,7 +347,7 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         printf ("Unknown argument : '%s'\n", argv[i]);
         goto error;
       }
-    } else if (menu) {
+    } else if (args->mode == MODE_MENU) {
       if (i + 1 >= argc)
         goto error;
 
@@ -338,9 +358,13 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
       goto error;
     }
   }
-  if (menu == 0 || args->num_items == 0)
+  if (args->mode == MODE_NONE ||
+      (args->mode == MODE_MENU && args->num_items == 0))
     goto error;
   return 0;
+ mode_already_set:
+  printf ("Only one box option can be set at a time\n");
+  goto error;
  missing_value:
   printf ("Not enough values to argument : '%s'\n", argv[i]);
   goto error;
@@ -370,6 +394,7 @@ int main(int argc, char **argv)
   int xres, yres;
   Menu *menu = NULL;
   whiptail_args args;
+  int return_value = 0;
 
   if (parse_whiptail_args (argc, argv, &args) != 0) {
     printf ("Invalid arguments received\n");
@@ -442,28 +467,34 @@ int main(int argc, char **argv)
   }
   */
 
-  menu = standard_menu_create (args.title, args.text, xres, yres, -1, 1);
+  if (args.mode == MODE_MENU) {
+    menu = standard_menu_create (args.title, args.text, xres, yres, -1, 1);
 
-  for (i = 0; i < args.num_items; i++) {
-    char *text;
-    whiptail_menu_item *item = &args.items[i];
-    if (args.notags || args.noitem) {
-      text = malloc ((args.notags ? strlen (item->item) : strlen (item->tag)) + 1);
-      strcpy (text, args.notags ? item->item : item->tag);
-    } else {
-      text = malloc (strlen (item->item) + strlen (item->tag) + 1 + 3);
-      strcpy (text, args.notags ? item->item : item->tag);
-      strcat (text, " - ");
-      strcat (text, item->item);
+    for (i = 0; i < args.num_items; i++) {
+      char *text;
+      whiptail_menu_item *item = &args.items[i];
+      if (args.notags || args.noitem) {
+        text = malloc ((args.notags ? strlen (item->item) : strlen (item->tag)) + 1);
+        strcpy (text, args.notags ? item->item : item->tag);
+      } else {
+        text = malloc (strlen (item->item) + strlen (item->tag) + 1 + 3);
+        strcpy (text, args.notags ? item->item : item->tag);
+        strcat (text, " - ");
+        strcat (text, item->item);
+      }
+      idx = standard_menu_add_item (menu, text, 20);
+      menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
+      free (text);
+      if (i == 0 ||
+          (args.default_item && strcmp (args.default_item, item->tag) == 0)) {
+        CairoMenuRectangle bbox;
+        cairo_menu_set_selection (menu->menu, idx, &bbox);
+      }
     }
-    idx = standard_menu_add_item (menu, text, 20);
-    menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
-    free (text);
-    if (i == 0 ||
-        (args.default_item && strcmp (args.default_item, item->tag) == 0)) {
-      CairoMenuRectangle bbox;
-      cairo_menu_set_selection (menu->menu, idx, &bbox);
-    }
+  } else if (args.mode == MODE_YESNO) {
+    menu = standard_menu_create (args.title, args.text, xres, yres, 1, -1);
+    standard_menu_add_item (menu, args.yes_button, 20);
+    standard_menu_add_item (menu, args.no_button, 20);
   }
   if (args.background_png)
     menu->background = load_image_and_scale (args.background_png, xres, yres);
@@ -480,8 +511,14 @@ int main(int argc, char **argv)
     gtk_signal_connect(GTK_OBJECT(window), "key_press_event",
         GTK_SIGNAL_FUNC(key_event), menu);
   gtk_main ();
-  if (result)
-    fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
+  if (result) {
+    if (args.mode == MODE_MENU)
+      fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
+    else if (args.mode == MODE_YESNO) {
+      if (menu->menu->selection != 0)
+        return_value = 1;
+    }
+  }
 #else
   while (!cancel) {
 
@@ -499,9 +536,14 @@ int main(int argc, char **argv)
     input_result = handle_input (menu);
     if (input_result == 1)
       redraw = 1;
-    else if (input_result == 2)
-      fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
-
+    else if (input_result == 2) {
+      if (args.mode == MODE_MENU)
+        fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
+      else if (args.mode == MODE_YESNO) {
+        if (menu->menu->selection != 0)
+          return_value = 1;
+      }
+    }
   }
 
  error:
@@ -525,5 +567,5 @@ int main(int argc, char **argv)
     free (menu);
   }
 
-  return 0;
+  return return_value;
 }

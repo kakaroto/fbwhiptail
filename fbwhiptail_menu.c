@@ -109,7 +109,11 @@ create_standard_menu_frame (Menu *menu)
 
   /* Adapt frame height depending on items in the menu */
   width = STANDARD_MENU_FRAME_WIDTH;
-  height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
+  // If horizontal, don't extend frame downward
+  if (menu->menu->rows == 1)
+    height = STANDARD_MENU_ITEM_TOTAL_HEIGHT;
+  else
+    height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
   height += cairo_utils_get_surface_height (menu->text.surface);
   if (height > STANDARD_MENU_HEIGHT)
     height = STANDARD_MENU_HEIGHT;
@@ -246,7 +250,10 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
   /* Draw a frame around the menu so cut off buttons don't appear clippped */
 
   menu_width = STANDARD_MENU_WIDTH;
-  menu_height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
+  if (menu->menu->rows == 1)
+    menu_height = STANDARD_MENU_ITEM_TOTAL_HEIGHT;
+  else
+    menu_height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
 
   if (menu_height > STANDARD_MENU_HEIGHT - text_height)
     menu_height = STANDARD_MENU_HEIGHT - text_height;
@@ -266,19 +273,16 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
 }
 
 static cairo_surface_t *
-create_standard_background (float r, float g, float b) {
+create_standard_background (int width, int height, float r, float g, float b) {
   cairo_surface_t *bg;
   cairo_surface_t *background;
   cairo_t *cr;
-  int width, height;
   cairo_pattern_t *linpat = NULL;
 
-  width = STANDARD_MENU_ITEM_BOX_WIDTH;
-  height = STANDARD_MENU_ITEM_BOX_HEIGHT;
   background = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32, width, height);
 
-  bg = cairo_menu_create_default_background (STANDARD_MENU_ITEM_WIDTH,
-      STANDARD_MENU_ITEM_HEIGHT, r, g, b);
+  bg = cairo_menu_create_default_background (width - (2 * STANDARD_MENU_BOX_X),
+      height - (2 * STANDARD_MENU_BOX_Y), r, g, b);
 
   // Draw the grey/silver gradient (for the border)
   cr = cairo_create (background);
@@ -388,6 +392,13 @@ standard_menu_create (const char *title, char * text,
   cairo_t *cr;
   Menu * menu = malloc (sizeof(Menu));
   int text_height;
+  int horizontal = !!(rows == 1);
+  int button_width, button_height;
+
+  button_width = STANDARD_MENU_ITEM_BOX_WIDTH;
+  if (rows == 1)
+    button_width = (button_width / 2) - STANDARD_MENU_PAD_X;
+  button_height = STANDARD_MENU_ITEM_BOX_HEIGHT;
 
   memset (menu, 0, sizeof(Menu));
   menu->draw = draw_standard_menu;
@@ -397,17 +408,17 @@ standard_menu_create (const char *title, char * text,
 
   create_text_suface (menu, text);
   text_height = cairo_utils_get_surface_height (menu->text.surface);
-  background = create_standard_background (0, 0, 0);
-  selected_background = create_standard_background (0.05, 0.30, 0.60);
+  background = create_standard_background (button_width, button_height, 0, 0, 0);
+  selected_background = create_standard_background (button_width, button_height,
+      0.05, 0.30, 0.60);
   disabled = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-      STANDARD_MENU_ITEM_BOX_WIDTH, STANDARD_MENU_ITEM_BOX_HEIGHT);
+      button_width, button_height);
 
   cr = cairo_create (disabled);
 
   cairo_set_source_rgba (cr, 0.7, 0.7, 0.7, 0.7);
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
-  cairo_utils_clip_round_edge (cr,
-      STANDARD_MENU_ITEM_BOX_WIDTH, STANDARD_MENU_ITEM_BOX_HEIGHT,
+  cairo_utils_clip_round_edge (cr, button_width, button_height,
       STANDARD_MENU_BOX_X + 7, STANDARD_MENU_BOX_Y + 7, 7);
   cairo_paint (cr);
 
@@ -418,7 +429,7 @@ standard_menu_create (const char *title, char * text,
       STANDARD_MENU_WIDTH, STANDARD_MENU_HEIGHT - text_height);
   /* Infinite vertical scrollable menu */
   menu->menu = cairo_menu_new_full (surface, rows, columns,
-      STANDARD_MENU_ITEM_BOX_WIDTH, STANDARD_MENU_ITEM_BOX_HEIGHT,
+      button_width, button_height,
       STANDARD_MENU_PAD_X, STANDARD_MENU_PAD_Y, 0,
       background, selected_background, disabled);
   cairo_surface_destroy (surface);

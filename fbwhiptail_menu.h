@@ -51,12 +51,20 @@ typedef struct {
   char *item;
 } whiptail_menu_item;
 
+typedef enum {
+  MODE_NONE = 0,
+  MODE_MENU,
+  MODE_YESNO,
+} whiptail_mode;
+
 typedef struct {
   // Whiptail arguments
   char *title;
   char *backtitle;
   char *text;
   char *default_item;
+  char *yes_button;
+  char *no_button;
   int noitem;
   int notags;
   int topleft;
@@ -64,6 +72,7 @@ typedef struct {
   int width;
   int height;
   int menu_height;
+  whiptail_mode mode;
   whiptail_menu_item *items;
   int num_items;
   // FBwhiptail arguments
