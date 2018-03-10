@@ -244,6 +244,8 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
   args->output_fd = 2;
   args->yes_button = "Yes";
   args->no_button = "No";
+  args->ok_button = "OK";
+  args->cancel_button = "Cancel";
 
   for (i = 1; i < argc; i++) {
     if (end_of_args == 0 && strcmp (argv[i], "-h") == 0) {
@@ -301,7 +303,17 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->width = atoi (argv[i+3]);
         i += 3;
         args->mode = MODE_YESNO;
-      } else if (strcmp (argv[i], "--") == 0) {
+      } else if (strcmp (argv[i], "--msgbox") == 0) {
+        if (args->mode != MODE_NONE)
+          goto mode_already_set;
+        if (i + 3 >= argc)
+          goto missing_value;
+        args->text = argv[i+1];
+        args->height = atoi (argv[i+2]);
+        args->width = atoi (argv[i+3]);
+        i += 3;
+        args->mode = MODE_MSGBOX;
+      }else if (strcmp (argv[i], "--") == 0) {
         end_of_args = 1;
       } else if (strcmp (argv[i], "--yes-button") == 0) {
         if (i + 1 >= argc)
@@ -311,12 +323,14 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         if (i + 1 >= argc)
           goto missing_value;
         args->no_button = argv[++i];
-      } else if (strcmp (argv[i], "--ok-button") == 0 ||
-                 strcmp (argv[i], "--cancel-button") == 0) {
+      } else if (strcmp (argv[i], "--ok-button") == 0) {
         if (i + 1 >= argc)
           goto missing_value;
-        i++;
-        // Ignore unsupported whiptail arguments
+        args->ok_button = argv[++i];
+      } else if (strcmp (argv[i], "--cancel-button") == 0) {
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->cancel_button = argv[++i];
       } else if (strcmp (argv[i], "--clear") == 0 ||
           strcmp (argv[i], "--fb") == 0 ||
           strcmp (argv[i], "--fullbuttons") == 0 ||
@@ -495,6 +509,9 @@ int main(int argc, char **argv)
     menu = standard_menu_create (args.title, args.text, xres, yres, 1, -1);
     standard_menu_add_item (menu, args.yes_button, 20);
     standard_menu_add_item (menu, args.no_button, 20);
+  } else if (args.mode == MODE_MSGBOX) {
+    menu = standard_menu_create (args.title, args.text, xres, yres, -1, 1);
+    standard_menu_add_item (menu, args.ok_button, 20);
   }
   if (args.background_png)
     menu->background = load_image_and_scale (args.background_png, xres, yres);

@@ -55,6 +55,7 @@ typedef enum {
   MODE_NONE = 0,
   MODE_MENU,
   MODE_YESNO,
+  MODE_MSGBOX,
 } whiptail_mode;
 
 typedef struct {
@@ -65,6 +66,8 @@ typedef struct {
   char *default_item;
   char *yes_button;
   char *no_button;
+  char *ok_button;
+  char *cancel_button;
   int noitem;
   int notags;
   int topleft;
