@@ -14,7 +14,7 @@ test-menu-fb: test-menu-fb.c cairo_menu.c cairo_utils.c cairo_linuxfb.c \
 fbwhiptail: fbwhiptail.c fbwhiptail_menu.c cairo_menu.c cairo_utils.c cairo_dri.c
 	$(CC) -g -O0 -o $@ $^ -lm -lcairo -lpixman-1 -lpng16 -lz
 
-gtkwhiptail: fbwhiptail.c fbwhiptail_menu.c cairo_menu.c cairo_utils.c
+gtkwhiptail: fbwhiptail.c fbwhiptail_menu.c fbwhiptail_menu.h cairo_menu.c cairo_utils.c
 	$(CC) -g -O0 -DGTKWHIPTAIL -o $@ $^ -lm 		\
 		`pkg-config --cflags --libs cairo`              \
 		`pkg-config --cflags --libs gtk+-2.0`

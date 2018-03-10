@@ -27,12 +27,20 @@
 
 typedef struct Menu_s Menu;
 
+typedef struct {
+  int nlines;
+  char **lines;
+  int start_line;
+  cairo_surface_t *surface;
+} MenuText;
+
 struct Menu_s {
   cairo_surface_t *background;
   CairoMenu *menu;
   int width;
   int height;
   const char *title;
+  MenuText text;
   cairo_surface_t *frame;
   void (*callback) (Menu *menu, int accepted);
   void (*draw) (Menu *menu, cairo_t *cr);
@@ -64,12 +72,12 @@ typedef struct {
 } whiptail_args;
 
 
-#define STANDARD_MENU_ITEM_WIDTH (600)
+#define STANDARD_MENU_ITEM_WIDTH (500)
 #define STANDARD_MENU_ITEM_HEIGHT 60
 #define STANDARD_MENU_PAD_X 10
 #define STANDARD_MENU_PAD_Y 3
-#define STANDARD_MENU_BOX_X 7
-#define STANDARD_MENU_BOX_Y 7
+#define STANDARD_MENU_BOX_X 5
+#define STANDARD_MENU_BOX_Y 5
 #define STANDARD_MENU_ITEM_BOX_WIDTH (STANDARD_MENU_ITEM_WIDTH + \
       (2 * STANDARD_MENU_BOX_X))
 #define STANDARD_MENU_ITEM_BOX_HEIGHT (STANDARD_MENU_ITEM_HEIGHT + \
@@ -98,6 +106,8 @@ typedef struct {
 #define STANDARD_MENU_TITLE_FONT_SIZE 25
 #define MAIN_MENU_FONT_SIZE 15
 
+#define FRAME_DROPSHADOW_DISTANCE 5
+
 #define BACKGROUND_GRADIENT_START_R 0
 #define BACKGROUND_GRADIENT_START_G 0.3
 #define BACKGROUND_GRADIENT_START_B 0.8
@@ -110,7 +120,8 @@ cairo_surface_t *create_gradient_background (int width, int height,
     float end_r, float end_g, float end_b);
 cairo_surface_t *load_image_and_scale (char *path, int width, int height);
 void draw_background (Menu *menu, cairo_t *cr);
-Menu *standard_menu_create (const char *title, int width, int height, int rows, int columns);
+Menu *standard_menu_create (const char *title, char * text,
+    int width, int height, int rows, int columns);
 int standard_menu_add_item (Menu *menu, const char *title, int fontsize);
 int standard_menu_add_tag (Menu *menu, const char *title, int fontsize);
 

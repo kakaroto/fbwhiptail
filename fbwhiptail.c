@@ -442,10 +442,8 @@ int main(int argc, char **argv)
   }
   */
 
-  menu = standard_menu_create (args.title, xres, yres,-1, 1);
+  menu = standard_menu_create (args.title, args.text, xres, yres, -1, 1);
 
-  idx = standard_menu_add_item (menu, args.text, 15);
-  menu->menu->items[idx].enabled = 0;
   for (i = 0; i < args.num_items; i++) {
     char *text;
     whiptail_menu_item *item = &args.items[i];
@@ -483,7 +481,7 @@ int main(int argc, char **argv)
         GTK_SIGNAL_FUNC(key_event), menu);
   gtk_main ();
   if (result)
-    fprintf (stderr, "%s", args.items[menu->menu->selection-1].tag);
+    fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
 #else
   while (!cancel) {
 
@@ -502,7 +500,7 @@ int main(int argc, char **argv)
     if (input_result == 1)
       redraw = 1;
     else if (input_result == 2)
-      fprintf (stderr, "%s", args.items[menu->menu->selection-1].tag);
+      fprintf (stderr, "%s", args.items[menu->menu->selection].tag);
 
   }
 

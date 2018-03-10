@@ -110,12 +110,15 @@ create_standard_menu_frame (Menu *menu)
   /* Adapt frame height depending on items in the menu */
   width = STANDARD_MENU_FRAME_WIDTH;
   height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
+  height += cairo_utils_get_surface_height (menu->text.surface);
   if (height > STANDARD_MENU_HEIGHT)
     height = STANDARD_MENU_HEIGHT;
   height += STANDARD_MENU_FRAME_HEIGHT;
 
   frame = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32,
       width, height);
+
+  // Draw silver border around the frame
   cr = cairo_create (frame);
   cairo_utils_clip_round_edge (cr, width, height,
       STANDARD_MENU_FRAME_CORNER_RADIUS, STANDARD_MENU_FRAME_CORNER_RADIUS,
@@ -129,6 +132,7 @@ create_standard_menu_frame (Menu *menu)
   cairo_paint (cr);
   cairo_pattern_destroy (linpat);
 
+  // Create frame gradient
   linpat = cairo_pattern_create_linear (width, 0, width, height);
 
   cairo_pattern_add_color_stop_rgb (linpat, 0.0, 0.03, 0.07, 0.10);
@@ -162,8 +166,52 @@ create_standard_menu_frame (Menu *menu)
   cairo_destroy (cr);
 
   /* Create the frame with a dropshadow */
-  menu->frame = cairo_utils_surface_add_dropshadow (frame, 3);
+  menu->frame = cairo_utils_surface_add_dropshadow (frame,
+      FRAME_DROPSHADOW_DISTANCE);
   cairo_surface_destroy (frame);
+}
+
+static void
+refresh_text_surface (Menu *menu)
+{
+  double x;
+  double y;
+  double width = menu->width * 0.8;
+  double height = menu->height * 0.8;
+  char **line;
+  int cnt = menu->text.start_line;
+  cairo_t *cr;
+
+  cr = cairo_create (menu->text.surface);
+  x = 0;
+  y = 0;
+
+  line = menu->text.lines;
+  while (*line != NULL && y + 20 < height) {
+    if (cnt > 0) {
+      cnt--;
+      line++;
+      continue;
+    }
+
+    /* Drawing text line */
+    cairo_save (cr);
+
+    cairo_select_font_face (cr,
+        "monospace",
+        CAIRO_FONT_SLANT_NORMAL,
+        CAIRO_FONT_WEIGHT_BOLD);
+
+    cairo_set_font_size (cr, 15);
+
+    cairo_set_source_rgb (cr, 1, 1, 1);
+    cairo_move_to (cr, x, y + 20);
+    cairo_show_text (cr, *line);
+    cairo_restore (cr);
+    y += 20;
+    line++;
+  }
+
 }
 
 static void
@@ -173,12 +221,15 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
   int w, h;
   int menu_width;
   int menu_height;
+  int text_height;
 
   if (menu->frame == NULL) {
     create_standard_menu_frame (menu);
   }
+  refresh_text_surface (menu);
 
   cairo_utils_get_surface_size (menu->frame, &w, &h);
+  text_height = cairo_utils_get_surface_height (menu->text.surface);
   surface = cairo_menu_get_surface (menu->menu);
 
   cairo_menu_redraw (menu->menu);
@@ -187,17 +238,22 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
       (menu->height - h) / 2);
   cairo_paint (cr);
 
+  cairo_set_source_surface (cr, menu->text.surface,
+      (menu->width - w) / 2 + STANDARD_MENU_FRAME_SIDE,
+      (menu->height - h) / 2 + STANDARD_MENU_FRAME_TOP);
+  cairo_paint (cr);
+
   /* Draw a frame around the menu so cut off buttons don't appear clippped */
 
   menu_width = STANDARD_MENU_WIDTH;
   menu_height = menu->menu->nitems * STANDARD_MENU_ITEM_TOTAL_HEIGHT;
 
-  if (menu_height > STANDARD_MENU_HEIGHT)
-    menu_height = STANDARD_MENU_HEIGHT;
+  if (menu_height > STANDARD_MENU_HEIGHT - text_height)
+    menu_height = STANDARD_MENU_HEIGHT - text_height;
 
   cairo_save (cr);
   cairo_translate (cr, ((menu->width - w) / 2) + STANDARD_MENU_FRAME_SIDE,
-      ((menu->height - h) / 2) + STANDARD_MENU_FRAME_TOP);
+      ((menu->height - h) / 2) + STANDARD_MENU_FRAME_TOP + text_height);
   cairo_utils_clip_round_edge (cr, menu_width, menu_height, 20, 20, 20);
   cairo_set_source_rgb (cr, 0, 0, 0);
   cairo_paint_with_alpha (cr, 0.5);
@@ -224,6 +280,7 @@ create_standard_background (float r, float g, float b) {
   bg = cairo_menu_create_default_background (STANDARD_MENU_ITEM_WIDTH,
       STANDARD_MENU_ITEM_HEIGHT, r, g, b);
 
+  // Draw the grey/silver gradient (for the border)
   cr = cairo_create (background);
   cairo_utils_clip_round_edge (cr, width, height,
       STANDARD_MENU_BOX_CORNER_RADIUS, STANDARD_MENU_BOX_CORNER_RADIUS,
@@ -237,6 +294,7 @@ create_standard_background (float r, float g, float b) {
   cairo_set_source (cr, linpat);
   cairo_paint_with_alpha (cr, 0.5);
 
+  // Clear the inside of the gradient in order to create a border
   cairo_utils_clip_round_edge (cr, width, height,
       STANDARD_MENU_BOX_CORNER_RADIUS + STANDARD_MENU_BOX_BORDER_WIDTH,
       STANDARD_MENU_BOX_CORNER_RADIUS + STANDARD_MENU_BOX_BORDER_WIDTH,
@@ -245,10 +303,12 @@ create_standard_background (float r, float g, float b) {
   cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
   cairo_paint (cr);
 
+  // Add a 40% alpha black filter inside, creating a frame around the button
   cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
   cairo_set_source_rgb (cr, 0, 0, 0);
   cairo_paint_with_alpha (cr, 0.4);
 
+  // Draw the actual button
   cairo_set_source_surface (cr, bg, STANDARD_MENU_BOX_X, STANDARD_MENU_BOX_Y);
   cairo_paint (cr);
   cairo_destroy (cr);
@@ -258,13 +318,76 @@ create_standard_background (float r, float g, float b) {
   return background;
 }
 
+char *
+load_text_from_file (char *filename)
+{
+ FILE* fd = NULL;
+ char *text = NULL;
+ int filesize;
+
+ fd = fopen(filename,"rb");
+ if (fd != NULL) {
+   fseek(fd, 0, SEEK_END);
+   filesize = ftell(fd);
+   fseek(fd, 0, SEEK_SET);
+
+   text = (char*) malloc(filesize + 1);
+   fread(text, 1, filesize, fd);
+   text[filesize] = 0;
+   fclose(fd);
+ }
+
+ return text;
+}
+
+void
+create_text_suface (Menu *menu, char *text)
+{
+ char *ptr;
+ int filesize;
+ int lines;
+
+ memset (&menu->text, 0, sizeof(MenuText));
+
+ /* Calculate number of lines */
+ lines = 0;
+ ptr = text;
+ while (*ptr != 0) {
+   if (*ptr++ == '\n')
+     lines++;
+ }
+ /* Last line */
+ lines++;
+
+ menu->text.lines = malloc ((lines + 1) * sizeof(char *));
+ menu->text.nlines = 0;
+ ptr = text;
+ while (*ptr != 0) {
+   if (*ptr != '\r')
+     menu->text.lines[menu->text.nlines++] = ptr;
+
+   while (*ptr != 0 && *ptr != '\r' && *ptr != '\n')
+     ptr++;
+   if (*ptr == '\r')
+     *ptr++ = 0;
+   if (*ptr == '\n')
+     *ptr++ = 0;
+ }
+ menu->text.lines[menu->text.nlines] = NULL;
+
+ menu->text.surface = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32,
+     STANDARD_MENU_WIDTH, 10 + 20 * menu->text.nlines);
+}
+
 Menu *
-standard_menu_create (const char *title, int width, int height, int rows, int columns)
+standard_menu_create (const char *title, char * text,
+    int width, int height, int rows, int columns)
 {
   cairo_surface_t *surface;
   cairo_surface_t *background, *selected_background, *disabled;
   cairo_t *cr;
   Menu * menu = malloc (sizeof(Menu));
+  int text_height;
 
   memset (menu, 0, sizeof(Menu));
   menu->draw = draw_standard_menu;
@@ -272,6 +395,8 @@ standard_menu_create (const char *title, int width, int height, int rows, int co
   menu->width = width;
   menu->height = height;
 
+  create_text_suface (menu, text);
+  text_height = cairo_utils_get_surface_height (menu->text.surface);
   background = create_standard_background (0, 0, 0);
   selected_background = create_standard_background (0.05, 0.30, 0.60);
   disabled = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
@@ -290,7 +415,7 @@ standard_menu_create (const char *title, int width, int height, int rows, int co
   cairo_surface_flush (disabled);
 
   surface = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32,
-      STANDARD_MENU_WIDTH, STANDARD_MENU_HEIGHT);
+      STANDARD_MENU_WIDTH, STANDARD_MENU_HEIGHT - text_height);
   /* Infinite vertical scrollable menu */
   menu->menu = cairo_menu_new_full (surface, rows, columns,
       STANDARD_MENU_ITEM_BOX_WIDTH, STANDARD_MENU_ITEM_BOX_HEIGHT,
@@ -324,4 +449,13 @@ standard_menu_add_item (Menu *menu, const char *title, int fontsize)
   menu->menu->items[idx].ipad_y = STANDARD_MENU_ITEM_IPAD_Y;
 
   return idx;
+}
+
+void
+free_text (Menu *menu)
+{
+  if (menu->text.lines != NULL && menu->text.lines[0] != NULL)
+    free (menu->text.lines[0]);
+  if (menu->text.lines != NULL)
+    free (menu->text.lines);
 }
