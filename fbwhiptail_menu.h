@@ -81,7 +81,7 @@ typedef struct {
 } whiptail_args;
 
 
-#define STANDARD_MENU_ITEM_WIDTH (500)
+#define STANDARD_MENU_ITEM_WIDTH (800)
 #define STANDARD_MENU_ITEM_HEIGHT 60
 #define STANDARD_MENU_PAD_X 10
 #define STANDARD_MENU_PAD_Y 3

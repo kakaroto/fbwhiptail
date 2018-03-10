@@ -367,6 +367,7 @@ create_text_suface (Menu *menu, char *text)
    if (*ptr2++ == '\n')
      lines++;
  }
+ *ptr2 = '\0';
  /* Last line */
  lines++;
 

@@ -1,2 +1,2 @@
 #!/bin/sh
-fbwhiptail --background-gradient 20 20 20 100 100 100 "$@"
+fbwhiptail --background-gradient 0 0 0 150 150 150 "$@"
