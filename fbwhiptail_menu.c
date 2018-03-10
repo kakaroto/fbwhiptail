@@ -347,17 +347,24 @@ load_text_from_file (char *filename)
 void
 create_text_suface (Menu *menu, char *text)
 {
- char *ptr;
- int filesize;
- int lines;
+  char *ptr, *ptr2;
+  int filesize;
+  int lines;
 
  memset (&menu->text, 0, sizeof(MenuText));
 
  /* Calculate number of lines */
  lines = 0;
- ptr = text;
+ ptr = ptr2 = text;
  while (*ptr != 0) {
-   if (*ptr++ == '\n')
+   if (*ptr == '\\' && ptr[1] == 'n') {
+     *ptr2 = '\n';
+     ptr += 2;
+   } else {
+     *ptr2 = *ptr;
+     ptr++;
+   }
+   if (*ptr2++ == '\n')
      lines++;
  }
  /* Last line */
