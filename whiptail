@@ -1,2 +1,2 @@
 #!/bin/sh
-fbwhiptail --notags --background-gradient 0 0 0 150 150 150 "$@"
+fbwhiptail --notags "$@"

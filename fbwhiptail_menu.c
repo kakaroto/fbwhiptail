@@ -137,12 +137,10 @@ create_standard_menu_frame (Menu *menu)
   cairo_pattern_destroy (linpat);
 
   // Create frame gradient
-  linpat = cairo_pattern_create_linear (width, 0, width, height);
+  linpat = cairo_pattern_create_linear (0, 0, width, height);
 
-  cairo_pattern_add_color_stop_rgb (linpat, 0.0, 0.03, 0.07, 0.10);
-  cairo_pattern_add_color_stop_rgb (linpat, 0.1, 0.04, 0.09, 0.16);
-  cairo_pattern_add_color_stop_rgb (linpat, 0.5, 0.05, 0.20, 0.35);
-  cairo_pattern_add_color_stop_rgb (linpat, 1.0, 0.06, 0.55, 0.75);
+  cairo_pattern_add_color_stop_rgb (linpat, 0.0, 0.5, 0.5, 0.5);
+  cairo_pattern_add_color_stop_rgb (linpat, 1.0, 0.1, 0.1, 0.1);
 
   cairo_utils_clip_round_edge (cr, width, height,
       STANDARD_MENU_FRAME_CORNER_RADIUS + STANDARD_MENU_FRAME_BORDER_WIDTH,
@@ -165,7 +163,7 @@ create_standard_menu_frame (Menu *menu)
   y = (STANDARD_MENU_FRAME_TOP / 2) + (fex.ascent / 2);
   x = ((width - tex.width) / 2) - tex.x_bearing;
   cairo_move_to(cr, x, y);
-  cairo_set_source_rgb (cr, 0.0, 0.3, 0.5);
+  cairo_set_source_rgb (cr, 0.5, 0.5, 0.5);
   cairo_show_text (cr, menu->title);
   cairo_destroy (cr);
 
@@ -418,7 +416,7 @@ standard_menu_create (const char *title, char * text,
   text_height = cairo_utils_get_surface_height (menu->text.surface);
   background = create_standard_background (button_width, button_height, 0, 0, 0);
   selected_background = create_standard_background (button_width, button_height,
-      0.05, 0.30, 0.60);
+      0.4, 0.4, 0.4);
   disabled = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
       button_width, button_height);
 

@@ -246,6 +246,12 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
   args->no_button = "No";
   args->ok_button = "OK";
   args->cancel_button = "Cancel";
+  args->background_grad_rgb[0] = 0;
+  args->background_grad_rgb[1] = 0;
+  args->background_grad_rgb[2] = 0;
+  args->background_grad_rgb[3] = 0.6;
+  args->background_grad_rgb[4] = 0.6;
+  args->background_grad_rgb[5] = 0.6;
 
   for (i = 1; i < argc; i++) {
     if (end_of_args == 0 && strcmp (argv[i], "-h") == 0) {
