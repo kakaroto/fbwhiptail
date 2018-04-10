@@ -420,8 +420,11 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  if (args.clear)
+  if (args.clear) {
     printf ("\033c");
+    fflush (stdout);
+  }
+
 #ifdef GTKWHIPTAIL
   gtk_init(&argc, &argv);
 
