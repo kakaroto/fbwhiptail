@@ -402,14 +402,16 @@ int main(int argc, char **argv)
   struct termios oldt, newt;
   cairo_t *cr;
   cairo_dri_t *dri = NULL;
-  cairo_surface_t *surfaces[2] = {NULL, NULL};
-  cairo_t *crs[2] = {NULL, NULL};
+  cairo_surface_t **surfaces = NULL;
+  cairo_t **crs = NULL;
+  int *hdisplay = NULL, *vdisplay = NULL;
+  int screens = 0;
   int current_fb = 0;
   int redraw = 1;
   int input_result = 0;
 #endif
   int i, idx;
-  int xres, yres;
+  unsigned int xres, yres;
   Menu *menu = NULL;
   whiptail_args args;
   int return_value = 0;
@@ -450,24 +452,45 @@ int main(int argc, char **argv)
   newt.c_lflag &= ~(ICANON | ECHO);
   tcsetattr( STDIN_FILENO, TCSANOW, &newt);
 
-  // TODO : Support mutliple screens ? 
+  screens = 0;
   dri = cairo_dri_open("/dev/dri/card0");
   if (dri && dri->num_screens > 0) {
-    xres = dri->screens[0].mode.hdisplay;
-    yres = dri->screens[0].mode.vdisplay;
-    surfaces[0] = cairo_dri_create_surface(dri, &dri->screens[0]);
-    surfaces[1] = cairo_dri_create_surface(dri, &dri->screens[0]);
-    crs[0] = cairo_create(surfaces[0]);
-    crs[1] = cairo_create(surfaces[1]);
+    surfaces = malloc (sizeof(cairo_surface_t *) * dri->num_screens * 2);
+    crs = malloc (sizeof(cairo_t *) * dri->num_screens * 2);
+    hdisplay = malloc (sizeof(int) * dri->num_screens);
+    vdisplay = malloc (sizeof(int) * dri->num_screens);
+    xres = yres = 0xFFFFFFFF;
     current_fb = 0;
-    if (cairo_dri_flip_buffer (surfaces[current_fb], 0) != 0) {
-      printf ("Error: Can't flip DRI framebuffer\n");
-      goto error;
+    for (i = 0; i < dri->num_screens; i++) {
+      if (dri->screens[i].mode.hdisplay < xres)
+        xres = dri->screens[i].mode.hdisplay;
+      if (dri->screens[i].mode.vdisplay < yres)
+        yres = dri->screens[i].mode.vdisplay;
+
+      hdisplay[screens] = dri->screens[i].mode.hdisplay;
+      vdisplay[screens] = dri->screens[i].mode.vdisplay;
+      surfaces[screens*2] = cairo_dri_create_surface(dri, &dri->screens[i]);
+      surfaces[screens*2+1] = cairo_dri_create_surface(dri, &dri->screens[i]);
+      crs[screens*2] = cairo_create(surfaces[screens*2]);
+      crs[screens*2+1] = cairo_create(surfaces[screens*2+1]);
+
+      if (cairo_dri_flip_buffer (surfaces[i*2+current_fb], 0) != 0) {
+        cairo_destroy(crs[screens*2]);
+        cairo_destroy(crs[screens*2+1]);
+        cairo_surface_destroy (surfaces[screens*2]);
+        cairo_surface_destroy (surfaces[screens*2+1]);
+        surfaces[screens*2] = surfaces[screens*2+1] = NULL;
+        crs[screens*2] = crs[screens*2+1] = NULL;
+      } else {
+        screens++;
+      }
     }
-  } else {
+  }
+  if (screens == 0) {
     printf ("Error: Can't find usable screen\n");
     goto error;
   }
+  printf ("Found %d screens with smallest one of %dx%d\n", screens, xres, yres);
 #endif
 
   /*
@@ -549,12 +572,20 @@ int main(int argc, char **argv)
   while (!cancel) {
 
     if (redraw) {
-      cr = crs[current_fb];
-      draw_background (menu, cr);
-      menu->draw (menu, cr);
-      if (cairo_dri_flip_buffer (surfaces[current_fb], 0) != 0) {
-        printf ("Flip failed. Cancelling\n");
-        break;
+      for (i = 0; i < screens; i++) {
+        int off_x = (hdisplay[i] - xres) / 2;
+        int off_y = (vdisplay[i] - yres) / 2;
+
+        cr = crs[i*2+current_fb];
+        cairo_save (cr);
+        cairo_translate (cr, off_x, off_y);
+        draw_background (menu, cr);
+        menu->draw (menu, cr);
+        cairo_restore (cr);
+        if (cairo_dri_flip_buffer (surfaces[i*2 + current_fb], 0) != 0) {
+          printf ("Flip failed. Cancelling\n");
+          break;
+        }
       }
       current_fb = (current_fb + 1) % 2;
       redraw = 0;
@@ -575,14 +606,20 @@ int main(int argc, char **argv)
  error:
   /*restore the old settings*/
   tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
-  if (crs[0])
-    cairo_destroy(crs[0]);
-  if (surfaces[0])
-    cairo_surface_destroy (surfaces[0]);
-  if (crs[1])
-    cairo_destroy(crs[1]);
-  if (surfaces[1])
-    cairo_surface_destroy (surfaces[1]);
+  for (i = 0; i < screens * 2; i++) {
+    if (crs[i])
+      cairo_destroy(crs[i]);
+    if (surfaces[i])
+      cairo_surface_destroy (surfaces[i]);
+  }
+  if (crs)
+    free (crs);
+  if (surfaces)
+    free (surfaces);
+  if (hdisplay)
+    free (hdisplay);
+  if (vdisplay)
+    free (vdisplay);
   if (dri)
     cairo_dri_close (dri);
 #endif
