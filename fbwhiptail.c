@@ -490,7 +490,6 @@ int main(int argc, char **argv)
     printf ("Error: Can't find usable screen\n");
     goto error;
   }
-  printf ("Found %d screens with smallest one of %dx%d\n", screens, xres, yres);
 #endif
 
   /*
