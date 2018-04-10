@@ -68,6 +68,7 @@ typedef struct {
   char *no_button;
   char *ok_button;
   char *cancel_button;
+  int clear;
   int noitem;
   int notags;
   int topleft;

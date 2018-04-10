@@ -185,9 +185,7 @@ void print_usage (int exit_code)
 {
   printf ("Box options: \n");
   printf ("\t--msgbox <text> <height> <width>\n");
-  printf ("\t\tThis option is not yet supported\n");
   printf ("\t--yesno  <text> <height> <width>\n");
-  printf ("\t\tThis option is not yet supported\n");
   printf ("\t--infobox <text> <height> <width>\n");
   printf ("\t\tThis option is not supported\n");
   printf ("\t--inputbox <text> <height> <width> [init] \n");
@@ -205,7 +203,6 @@ void print_usage (int exit_code)
   printf ("\t\tThis option is not supported\n");
   printf ("Options: (depend on box-option)\n");
   printf ("\t--clear\t\t\t\tclear screen on exit\n");
-  printf ("\t\tThis option is not supported\n");
   printf ("\t--defaultno\t\t\tdefault no button\n");
   printf ("\t--default-item <string>\t\tset default string\n");
   printf ("\t--fb, --fullbuttons\t\tuse full buttons\n");
@@ -287,6 +284,8 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->notags = 1;
       } else if (strcmp (argv[i], "--topleft") == 0) {
         args->topleft = 1;
+      } else if (strcmp (argv[i], "--clear") == 0) {
+        args->clear = 1;
       } else if (strcmp (argv[i], "--menu") == 0) {
         if (args->mode != MODE_NONE)
           goto mode_already_set;
@@ -337,8 +336,7 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         if (i + 1 >= argc)
           goto missing_value;
         args->cancel_button = argv[++i];
-      } else if (strcmp (argv[i], "--clear") == 0 ||
-          strcmp (argv[i], "--fb") == 0 ||
+      } else if (strcmp (argv[i], "--fb") == 0 ||
           strcmp (argv[i], "--fullbuttons") == 0 ||
           strcmp (argv[i], "--defaultno") == 0 ||
           strcmp (argv[i], "--nocancel") == 0 ||
@@ -422,6 +420,8 @@ int main(int argc, char **argv)
     return -1;
   }
 
+  if (args.clear)
+    printf ("\033c");
 #ifdef GTKWHIPTAIL
   gtk_init(&argc, &argv);
 
