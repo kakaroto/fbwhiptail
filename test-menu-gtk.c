@@ -23,6 +23,7 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#include <glob.h>
 
 #include <sys/time.h>
 
@@ -92,6 +93,7 @@ int main(int argc, char **argv)
   GtkWidget *area;
   int idx;
   cairo_surface_t *image = NULL;
+  glob_t gl;
 
   gtk_init(&argc, &argv);
 
@@ -132,16 +134,21 @@ int main(int argc, char **argv)
   menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_CENTER;
   idx = cairo_menu_add_item (menu, "BOTTOM RIGHT", 10);
   menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_RIGHT;
-  idx = cairo_menu_add_item (menu, "Pattern", 15);
-  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
-  image = cairo_image_surface_create_from_png ("pattern.png");
-  cairo_menu_set_item_image (menu, idx, image, CAIRO_MENU_IMAGE_POSITION_RIGHT);
-  cairo_surface_destroy (image);
-  idx = cairo_menu_add_item (menu, "Rectangles", 15);
-  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
-  image = cairo_image_surface_create_from_png ("rect.png");
-  cairo_menu_set_item_image (menu, idx, image, CAIRO_MENU_IMAGE_POSITION_LEFT);
-  cairo_surface_destroy (image);
+  if (glob ("/usr/share/icons/hicolor/256x256/apps/*.png", 0, NULL, &gl) == 0) {
+    int i;
+    char *basename;
+
+    for (i = 0; i < gl.gl_pathc; i++) {
+      basename = gl.gl_pathv[i] + strlen (gl.gl_pathv[i]);
+      while (basename > gl.gl_pathv[i] && *(basename - 1) != '/') basename--;
+      idx = cairo_menu_add_item (menu, basename, 15);
+      menu->items[idx].alignment = idx % 2 ? CAIRO_MENU_ALIGN_MIDDLE_LEFT : CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
+      image = cairo_image_surface_create_from_png (gl.gl_pathv[i]);
+      cairo_menu_set_item_image (menu, idx, image, idx % 2);
+      cairo_surface_destroy (image);
+    }
+    globfree (&gl);
+  }
   cairo_menu_add_item (menu, "Hello world 3", 20);
   cairo_menu_add_item (menu, "Hello world 4", 20);
   cairo_menu_add_item (menu, "Hello world 5", 20);
