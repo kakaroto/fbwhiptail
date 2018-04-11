@@ -11,7 +11,7 @@ test-menu-fb: test-menu-fb.c cairo_menu.c cairo_utils.c cairo_linuxfb.c \
 	$(CC) -g -O0 -o $@ $^ -lm
 
 
-fbwhiptail: fbwhiptail.c fbwhiptail_menu.c cairo_menu.c cairo_utils.c cairo_dri.c
+fbwhiptail: fbwhiptail.c fbwhiptail_menu.c cairo_menu.c cairo_utils.c cairo_dri.c cairo_linuxfb.c
 	$(CC) -g -O0 -o $@ $^ -lm -lcairo -lpixman-1 -lpng16 -lz
 
 gtkwhiptail: fbwhiptail.c fbwhiptail_menu.c fbwhiptail_menu.h cairo_menu.c cairo_utils.c

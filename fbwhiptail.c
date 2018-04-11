@@ -49,6 +49,7 @@
 #include <signal.h>
 
 #include "cairo_dri.h"
+#include "cairo_linuxfb.h"
 #endif
 
 #define VERSION_STRING "0.0.1"
@@ -451,6 +452,8 @@ int main(int argc, char **argv)
     that means it will return if it sees a "\n" or an EOF or an EOL*/
   newt.c_lflag &= ~(ICANON | ECHO);
   tcsetattr( STDIN_FILENO, TCSANOW, &newt);
+  printf ("\e[?25l"); // Hide blinking cursor (in case of linux FB)
+  fflush (stdout);
 
   screens = 0;
   dri = cairo_dri_open("/dev/dri/card0");
@@ -474,7 +477,7 @@ int main(int argc, char **argv)
       crs[screens*2] = cairo_create(surfaces[screens*2]);
       crs[screens*2+1] = cairo_create(surfaces[screens*2+1]);
 
-      if (cairo_dri_flip_buffer (surfaces[i*2+current_fb], 0) != 0) {
+      if (cairo_dri_flip_buffer (surfaces[i*2], 0) != 0) {
         cairo_destroy(crs[screens*2]);
         cairo_destroy(crs[screens*2+1]);
         cairo_surface_destroy (surfaces[screens*2]);
@@ -486,6 +489,45 @@ int main(int argc, char **argv)
       }
     }
   }
+
+  if (screens == 0) {
+    cairo_surface_t * fbsurface = cairo_linuxfb_surface_create("/dev/fb0", 2);
+    int num_fbs = 2;
+
+    if (fbsurface == NULL) {
+      fbsurface = cairo_linuxfb_surface_create("/dev/fb0", 1);
+      num_fbs = 1;
+    }
+
+    if (fbsurface) {
+      if (crs)
+        free (crs);
+      if (surfaces)
+        free (surfaces);
+      if (hdisplay)
+        free (hdisplay);
+      if (vdisplay)
+        free (vdisplay);
+      if (dri)
+        cairo_dri_close (dri);
+      dri = NULL;
+      surfaces = malloc (sizeof(cairo_surface_t *) * 2);
+      crs = malloc (sizeof(cairo_t *) * 2);
+      hdisplay = malloc (sizeof(int));
+      vdisplay = malloc (sizeof(int));
+      surfaces[0] = surfaces[1] = fbsurface;
+      crs[0] = crs[1] = cairo_create(surfaces[0]);
+      if (num_fbs == 1) {
+        surfaces[1] = NULL;
+        crs[1] = NULL;
+      }
+      cairo_linuxfb_get_resolution(fbsurface, &xres, &yres);
+      hdisplay[0] = xres;
+      vdisplay[0] = yres;
+      screens = 1;
+    }
+  }
+
   if (screens == 0) {
     printf ("Error: Can't find usable screen\n");
     goto error;
@@ -572,18 +614,35 @@ int main(int argc, char **argv)
 
     if (redraw) {
       for (i = 0; i < screens; i++) {
-        int off_x = (hdisplay[i] - xres) / 2;
-        int off_y = (vdisplay[i] - yres) / 2;
-
         cr = crs[i*2+current_fb];
         cairo_save (cr);
-        cairo_translate (cr, off_x, off_y);
+        if (dri) {
+          int off_x = (hdisplay[i] - xres) / 2;
+          int off_y = (vdisplay[i] - yres) / 2;
+
+          cairo_translate (cr, off_x, off_y);
+        } else {
+          // Linux FB
+          cairo_translate (cr, 0, yres * current_fb);
+        }
         draw_background (menu, cr);
         menu->draw (menu, cr);
         cairo_restore (cr);
-        if (cairo_dri_flip_buffer (surfaces[i*2 + current_fb], 0) != 0) {
-          printf ("Flip failed. Cancelling\n");
-          break;
+        if (dri) {
+          if (cairo_dri_flip_buffer (surfaces[i*2 + current_fb], 0) != 0) {
+            printf ("Flip failed. Cancelling\n");
+            break;
+          }
+        } else {
+          int next_fb = (current_fb + 1) % 2;
+
+          if (crs[i*2+next_fb] == NULL)
+            current_fb = next_fb;
+          else if (cairo_linuxfb_flip_buffer (surfaces[i*2 + current_fb],
+                  1, current_fb) != 0) {
+            printf ("Flip failed. Cancelling\n");
+            break;
+          }
         }
       }
       current_fb = (current_fb + 1) % 2;
@@ -604,6 +663,8 @@ int main(int argc, char **argv)
 
  error:
   /*restore the old settings*/
+  printf ("\e[?25h");
+  fflush (stdout);
   tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
   for (i = 0; i < screens * 2; i++) {
     if (crs[i])
