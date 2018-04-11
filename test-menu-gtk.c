@@ -37,15 +37,18 @@
 #include <X11/Xatom.h>
 #include <cairo/cairo.h>
 
-#include "fbwhiptail_menu.h"
+#include "cairo_menu.h"
 #include "cairo_utils.h"
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
+static cairo_surface_t *surface = NULL;
+static CairoMenu *menu = NULL;
+
+
 static gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
-  Menu *menu = data;
   CairoMenuInput input;
   CairoMenuRectangle bbox;
 
@@ -60,8 +63,8 @@ static gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
   else
     return TRUE;
 
-  cairo_menu_handle_input (menu->menu, input, &bbox);
-  gtk_widget_queue_draw_area (widget, 0, 0, menu->width, menu->height);
+  cairo_menu_handle_input (menu, input, &bbox);
+  gtk_widget_queue_draw_area (widget, bbox.x, bbox.y, bbox.width, bbox.height);
   return TRUE;
 }
 
@@ -69,15 +72,18 @@ static gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 static void
 draw (GtkWidget *widget, GdkEventExpose *eev, gpointer data)
 {
-  Menu *menu = data;
   cairo_t *cr;
+  cairo_surface_t *image = cairo_menu_get_surface (menu);
 
   cr = gdk_cairo_create(widget->window);
 
-  draw_background (menu, cr);
-  menu->draw (menu, cr);
+  cairo_menu_redraw (menu);
 
+  cairo_set_source_surface (cr, image, 0, 0);
+  cairo_paint (cr);
   cairo_destroy(cr);
+  cairo_surface_destroy (image);
+
 }
 
 int main(int argc, char **argv)
@@ -86,11 +92,13 @@ int main(int argc, char **argv)
   GtkWidget *area;
   int idx;
   cairo_surface_t *image = NULL;
-  Menu *menu;
 
   gtk_init(&argc, &argv);
 
-  menu = standard_menu_create ("GTK Cairo menu demo", WINDOW_WIDTH, WINDOW_HEIGHT, -1, 1);
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+      WINDOW_WIDTH, WINDOW_HEIGHT);
+  menu = cairo_menu_new (surface, -1, 3, (WINDOW_WIDTH / 3) - 10, 50);
+
 
   window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
   area = gtk_drawing_area_new();
@@ -99,69 +107,71 @@ int main(int argc, char **argv)
 
   g_signal_connect (G_OBJECT (window), "delete-event",
       G_CALLBACK (gtk_main_quit), NULL);
-  g_signal_connect (G_OBJECT (area), "expose-event", G_CALLBACK (draw), menu);
+  g_signal_connect (G_OBJECT (area), "expose-event", G_CALLBACK (draw), NULL);
     gtk_signal_connect(GTK_OBJECT(window), "key_press_event",
-		       GTK_SIGNAL_FUNC(key_event), menu);
+		       GTK_SIGNAL_FUNC(key_event), NULL);
 
   gtk_widget_show_all(window);
 
 
-  idx = standard_menu_add_item (menu, "TOP LEFT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_LEFT;
-  idx = standard_menu_add_item (menu, "TOP CENTER", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_CENTER;
-  idx = standard_menu_add_item (menu, "TOP RIGHT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_RIGHT;
-  idx = standard_menu_add_item (menu, "MIDDLE LEFT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
-  idx = standard_menu_add_item (menu, "MIDDLE CENTER", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_CENTER;
-  idx = standard_menu_add_item (menu, "MIDDLE RIGHT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
-  idx = standard_menu_add_item (menu, "BOTTOM LEFT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_LEFT;
-  idx = standard_menu_add_item (menu, "BOTTOM CENTER", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_CENTER;
-  idx = standard_menu_add_item (menu, "BOTTOM RIGHT", 10);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_RIGHT;
-  idx = standard_menu_add_item (menu, "Pattern", 15);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
+  idx = cairo_menu_add_item (menu, "TOP LEFT", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_LEFT;
+  idx = cairo_menu_add_item (menu, "TOP CENTER", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_CENTER;
+  idx = cairo_menu_add_item (menu, "TOP RIGHT", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_TOP_RIGHT;
+  idx = cairo_menu_add_item (menu, "MIDDLE LEFT", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
+  idx = cairo_menu_add_item (menu, "MIDDLE CENTER", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_CENTER;
+  idx = cairo_menu_add_item (menu, "MIDDLE RIGHT", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
+  idx = cairo_menu_add_item (menu, "BOTTOM LEFT", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_LEFT;
+  idx = cairo_menu_add_item (menu, "BOTTOM CENTER", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_CENTER;
+  idx = cairo_menu_add_item (menu, "BOTTOM RIGHT", 10);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_BOTTOM_RIGHT;
+  idx = cairo_menu_add_item (menu, "Pattern", 15);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_LEFT;
   image = cairo_image_surface_create_from_png ("pattern.png");
-  cairo_menu_set_item_image (menu->menu, idx, image, CAIRO_MENU_IMAGE_POSITION_RIGHT);
+  cairo_menu_set_item_image (menu, idx, image, CAIRO_MENU_IMAGE_POSITION_RIGHT);
   cairo_surface_destroy (image);
-  idx = standard_menu_add_item (menu, "Rectangles", 15);
-  menu->menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
+  idx = cairo_menu_add_item (menu, "Rectangles", 15);
+  menu->items[idx].alignment = CAIRO_MENU_ALIGN_MIDDLE_RIGHT;
   image = cairo_image_surface_create_from_png ("rect.png");
-  cairo_menu_set_item_image (menu->menu, idx, image, CAIRO_MENU_IMAGE_POSITION_LEFT);
+  cairo_menu_set_item_image (menu, idx, image, CAIRO_MENU_IMAGE_POSITION_LEFT);
   cairo_surface_destroy (image);
-  standard_menu_add_item (menu, "Hello world 3", 20);
-  standard_menu_add_item (menu, "Hello world 4", 20);
-  standard_menu_add_item (menu, "Hello world 5", 20);
-  standard_menu_add_item (menu, "Hello world 6", 20);
-  standard_menu_add_item (menu, "Hello world 7", 20);
-  standard_menu_add_item (menu, "Hello world 8", 20);
-  standard_menu_add_item (menu, "Hello world 9", 20);
-  standard_menu_add_item (menu, "Hello world 10", 15);
-  standard_menu_add_item (menu, "Hello world 11", 5);
-  standard_menu_add_item (menu, "Hello world 12", 5);
-  standard_menu_add_item (menu, "Hello world 13", 5);
-  standard_menu_add_item (menu, "Hello world 14", 5);
-  standard_menu_add_item (menu, "Hello world 5", 15);
-  standard_menu_add_item (menu, "Hello world 1", 10);
-  standard_menu_add_item (menu, "Hello world 2", 10);
-  standard_menu_add_item (menu, "Hello world 3", 10);
-  standard_menu_add_item (menu, "Hello world 4", 10);
-  standard_menu_add_item (menu, "Hello world 5", 10);
-  standard_menu_add_item (menu, "Hello world 6", 10);
-  standard_menu_add_item (menu, "Hello world 7", 10);
-  standard_menu_add_item (menu, "Hello world 8", 10);
-  standard_menu_add_item (menu, "Hello world 9", 10);
-  standard_menu_add_item (menu, "Hello world 10", 10);
-  standard_menu_add_item (menu, "Hello world 11", 10);
-  standard_menu_add_item (menu, "Hello world 12", 10);
-  standard_menu_add_item (menu, "Hello world 13", 10);
-  standard_menu_add_item (menu, "Hello world 14", 10);
-  standard_menu_add_item (menu, "Hello world 15", 10);
+  cairo_menu_add_item (menu, "Hello world 3", 20);
+  cairo_menu_add_item (menu, "Hello world 4", 20);
+  cairo_menu_add_item (menu, "Hello world 5", 20);
+  cairo_menu_add_item (menu, "Hello world 6", 20);
+  cairo_menu_add_item (menu, "Hello world 7", 20);
+  cairo_menu_add_item (menu, "Hello world 8", 20);
+  cairo_menu_add_item (menu, "Hello world 9", 20);
+  cairo_menu_add_item (menu, "Hello world 10", 15);
+  cairo_menu_add_item (menu, "Hello world 11", 5);
+  cairo_menu_add_item (menu, "Hello world 12", 5);
+  cairo_menu_add_item (menu, "Hello world 13", 5);
+  cairo_menu_add_item (menu, "Hello world 14", 5);
+  cairo_menu_add_item (menu, "Hello world 5", 15);
+  cairo_menu_add_item (menu, "Hello world 1", 10);
+  cairo_menu_add_item (menu, "Hello world 2", 10);
+  cairo_menu_add_item (menu, "Hello world 3", 10);
+  cairo_menu_add_item (menu, "Hello world 4", 10);
+  cairo_menu_add_item (menu, "Hello world 5", 10);
+  cairo_menu_add_item (menu, "Hello world 6", 10);
+  cairo_menu_add_item (menu, "Hello world 7", 10);
+  cairo_menu_add_item (menu, "Hello world 8", 10);
+  cairo_menu_add_item (menu, "Hello world 9", 10);
+  cairo_menu_add_item (menu, "Hello world 10", 10);
+  cairo_menu_add_item (menu, "Hello world 11", 10);
+  cairo_menu_add_item (menu, "Hello world 12", 10);
+  cairo_menu_add_item (menu, "Hello world 13", 10);
+  cairo_menu_add_item (menu, "Hello world 14", 10);
+  cairo_menu_add_item (menu, "Hello world 15", 10);
+
+  cairo_surface_destroy (surface);
 
   gtk_main();
 
