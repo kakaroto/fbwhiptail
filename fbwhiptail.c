@@ -229,6 +229,7 @@ void print_usage (int exit_code)
   printf ("\t--background-png <file>\t\tDisplay PNG image as background\n");
   printf ("\t--background-gradient <start red> <start green> <start blue> <end red> <end green> <end blue>\n");
   printf ("\t\t\t\t\tGenerate a linear gradient background from left to right\n");
+  printf ("\t--text-size <size>\t\tSet the text font size\n");
 
   exit (exit_code);
 }
@@ -250,6 +251,7 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
   args->background_grad_rgb[3] = 0.6;
   args->background_grad_rgb[4] = 0.6;
   args->background_grad_rgb[5] = 0.6;
+  args->text_size = 20;
 
   for (i = 1; i < argc; i++) {
     if (end_of_args == 0 && strcmp (argv[i], "-h") == 0) {
@@ -362,6 +364,11 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->background_grad_rgb[4] = (float) atoi (argv[i+5]) / 256;
         args->background_grad_rgb[5] = (float) atoi (argv[i+6]) / 256;
         i += 6;
+      } else if (strcmp (argv[i], "--text-size") == 0) {
+        // FBwhiptail specific arguments
+        if (i + 1 >= argc)
+          goto missing_value;
+        args->text_size = atoi (argv[++i]);
       } else {
         printf ("Unknown argument : '%s'\n", argv[i]);
         goto error;
@@ -555,7 +562,8 @@ int main(int argc, char **argv)
   */
 
   if (args.mode == MODE_MENU) {
-    menu = standard_menu_create (args.title, args.text, xres, yres, -1, 1);
+    menu = standard_menu_create (args.title, args.text, args.text_size,
+        xres, yres, -1, 1);
 
     for (i = 0; i < args.num_items; i++) {
       char *text;
@@ -579,11 +587,13 @@ int main(int argc, char **argv)
       }
     }
   } else if (args.mode == MODE_YESNO) {
-    menu = standard_menu_create (args.title, args.text, xres, yres, 1, -1);
+    menu = standard_menu_create (args.title, args.text, args.text_size,
+        xres, yres, 1, -1);
     standard_menu_add_item (menu, args.yes_button, 20);
     standard_menu_add_item (menu, args.no_button, 20);
   } else if (args.mode == MODE_MSGBOX) {
-    menu = standard_menu_create (args.title, args.text, xres, yres, -1, 1);
+    menu = standard_menu_create (args.title, args.text, args.text_size,
+        xres, yres, -1, 1);
     standard_menu_add_item (menu, args.ok_button, 20);
   }
   if (args.background_png)

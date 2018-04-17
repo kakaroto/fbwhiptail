@@ -41,6 +41,7 @@ struct Menu_s {
   int height;
   const char *title;
   MenuText text;
+  int text_size;
   cairo_surface_t *frame;
   void (*callback) (Menu *menu, int accepted);
   void (*draw) (Menu *menu, cairo_t *cr);
@@ -82,6 +83,7 @@ typedef struct {
   // FBwhiptail arguments
   char *background_png;
   float background_grad_rgb[6];
+  int text_size;
 } whiptail_args;
 
 
@@ -133,7 +135,7 @@ cairo_surface_t *create_gradient_background (int width, int height,
     float end_r, float end_g, float end_b);
 cairo_surface_t *load_image_and_scale (char *path, int width, int height);
 void draw_background (Menu *menu, cairo_t *cr);
-Menu *standard_menu_create (const char *title, char * text,
+Menu *standard_menu_create (const char *title, char * text, int text_size,
     int width, int height, int rows, int columns);
 int standard_menu_add_item (Menu *menu, const char *title, int fontsize);
 int standard_menu_add_tag (Menu *menu, const char *title, int fontsize);

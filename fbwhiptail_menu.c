@@ -29,6 +29,8 @@
 
 #include "fbwhiptail_menu.h"
 
+#define TEXT_PAD 5
+
 cairo_surface_t *
 create_gradient_background (int width, int height,
     float start_r, float start_g, float start_b,
@@ -189,7 +191,7 @@ refresh_text_surface (Menu *menu)
   y = 0;
 
   line = menu->text.lines;
-  while (*line != NULL && y + 20 < height) {
+  while (*line != NULL && y + menu->text_size < height) {
     if (cnt > 0) {
       cnt--;
       line++;
@@ -204,13 +206,13 @@ refresh_text_surface (Menu *menu)
         CAIRO_FONT_SLANT_NORMAL,
         CAIRO_FONT_WEIGHT_BOLD);
 
-    cairo_set_font_size (cr, 15);
+    cairo_set_font_size (cr, menu->text_size);
 
     cairo_set_source_rgb (cr, 1, 1, 1);
-    cairo_move_to (cr, x, y + 20);
+    cairo_move_to (cr, x, y + menu->text_size + TEXT_PAD);
     cairo_show_text (cr, *line);
     cairo_restore (cr);
-    y += 20;
+    y += menu->text_size;
     line++;
   }
 
@@ -343,7 +345,7 @@ load_text_from_file (char *filename)
 }
 
 void
-create_text_suface (Menu *menu, char *text)
+create_text_suface (Menu *menu, char *text, int text_size)
 {
   char *ptr, *ptr2;
   int filesize;
@@ -384,13 +386,14 @@ create_text_suface (Menu *menu, char *text)
      *ptr++ = 0;
  }
  menu->text.lines[menu->text.nlines] = NULL;
+ menu->text_size = text_size;
 
  menu->text.surface = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32,
-     STANDARD_MENU_WIDTH, 10 + 20 * menu->text.nlines);
+     STANDARD_MENU_WIDTH, 10 + (text_size + TEXT_PAD) * menu->text.nlines);
 }
 
 Menu *
-standard_menu_create (const char *title, char * text,
+standard_menu_create (const char *title, char * text, int text_size,
     int width, int height, int rows, int columns)
 {
   cairo_surface_t *surface;
@@ -412,7 +415,7 @@ standard_menu_create (const char *title, char * text,
   menu->width = width;
   menu->height = height;
 
-  create_text_suface (menu, text);
+  create_text_suface (menu, text, text_size);
   text_height = cairo_utils_get_surface_height (menu->text.surface);
   background = create_standard_background (button_width, button_height, 0, 0, 0);
   selected_background = create_standard_background (button_width, button_height,
