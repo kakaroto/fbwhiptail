@@ -140,6 +140,8 @@ static int handle_arrow_input(Menu *menu, short code)
 static int handle_input(Menu *menu)
 {
   static int escape = 0;
+  static char input_data[10] = {0};
+  static char input_size = 0;
   char c;
   int result = 0;
 
@@ -152,8 +154,23 @@ static int handle_input(Menu *menu)
       break;
     case 0xA: // Enter
       if (escape == 0) {
-        cancel = 1;
-        result = 2;
+        if (menu->gauge) {
+          if (input_size > 0 && input_size < sizeof(input_data)) {
+            int percent;
+            char *endp;
+
+            input_data[input_size] = 0;
+            percent = strtoul (input_data, &endp, 10);
+            if (*endp == '\0') {
+              standard_menu_update_gauge (menu, atoi (input_data));
+              result = 1;
+            }
+          }
+          input_size = 0;
+        } else {
+          cancel = 1;
+          result = 2;
+        }
       }
       escape = 0;
       break;
@@ -167,12 +184,17 @@ static int handle_input(Menu *menu)
       }
     default:
       if (escape == 0) {
+        if (input_size < sizeof(input_data) - 1)
+            input_data[input_size++] = c;
       }
       if (escape == 1) {
         escape = 2;
       } else {
         escape = 0;
       }
+      break;
+    case EOF:
+      cancel = 1;
       break;
   }
 
