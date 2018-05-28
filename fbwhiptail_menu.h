@@ -37,6 +37,7 @@ typedef struct {
 struct Menu_s {
   cairo_surface_t *background;
   CairoMenu *menu;
+  int gauge;
   int width;
   int height;
   const char *title;
@@ -57,6 +58,7 @@ typedef enum {
   MODE_MENU,
   MODE_YESNO,
   MODE_MSGBOX,
+  MODE_GAUGE,
 } whiptail_mode;
 
 typedef struct {
@@ -77,6 +79,7 @@ typedef struct {
   int width;
   int height;
   int menu_height;
+  int gauge_percent;
   whiptail_mode mode;
   whiptail_menu_item *items;
   int num_items;
@@ -139,5 +142,8 @@ Menu *standard_menu_create (const char *title, char * text, int text_size,
     int width, int height, int rows, int columns);
 int standard_menu_add_item (Menu *menu, const char *title, int fontsize);
 int standard_menu_add_tag (Menu *menu, const char *title, int fontsize);
+void standard_menu_update_gauge (Menu *menu, unsigned int percent);
+cairo_surface_t * create_standard_gauge (int width, int height, unsigned int percent,
+    float dr, float dg, float db, float r, float g, float b);
 
 #endif

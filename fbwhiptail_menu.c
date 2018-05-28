@@ -247,8 +247,6 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
       (menu->height - h) / 2 + STANDARD_MENU_FRAME_TOP);
   cairo_paint (cr);
 
-  /* Draw a frame around the menu so cut off buttons don't appear clippped */
-
   menu_width = STANDARD_MENU_WIDTH;
   if (menu->menu->rows == 1)
     menu_height = STANDARD_MENU_ITEM_TOTAL_HEIGHT;
@@ -261,9 +259,13 @@ draw_standard_menu (Menu *menu, cairo_t *cr)
   cairo_save (cr);
   cairo_translate (cr, ((menu->width - w) / 2) + STANDARD_MENU_FRAME_SIDE,
       ((menu->height - h) / 2) + STANDARD_MENU_FRAME_TOP + text_height);
-  cairo_utils_clip_round_edge (cr, menu_width, menu_height, 20, 20, 20);
-  cairo_set_source_rgb (cr, 0, 0, 0);
-  cairo_paint_with_alpha (cr, 0.5);
+
+  if (!menu->gauge) {
+    /* Draw a frame around the menu so cut off buttons don't appear clippped */
+    cairo_utils_clip_round_edge (cr, menu_width, menu_height, 20, 20, 20);
+    cairo_set_source_rgb (cr, 0, 0, 0);
+    cairo_paint_with_alpha (cr, 0.5);
+  }
 
   cairo_set_source_surface (cr, surface, 0, 0);
   cairo_paint (cr);
@@ -478,4 +480,88 @@ free_text (Menu *menu)
     free (menu->text.lines[0]);
   if (menu->text.lines != NULL)
     free (menu->text.lines);
+}
+
+cairo_surface_t *
+create_standard_gauge (int width, int height, unsigned int percent,
+    float dr, float dg, float db, float r, float g, float b) {
+  cairo_surface_t *dbg;
+  cairo_surface_t *bg;
+  int done_width;
+  cairo_surface_t *background;
+  cairo_t *cr;
+  cairo_pattern_t *linpat = NULL;
+
+  background = cairo_image_surface_create  (CAIRO_FORMAT_ARGB32, width, height);
+
+  if (percent > 100)
+    percent = 100;
+  done_width = (width - (2 * STANDARD_MENU_BOX_X)) * percent / 100;
+
+  dbg = cairo_menu_create_default_background (done_width,
+      height - (2 * STANDARD_MENU_BOX_Y), dr, dg, db);
+  bg = cairo_menu_create_default_background (width - (2 * STANDARD_MENU_BOX_X) - done_width,
+      height - (2 * STANDARD_MENU_BOX_Y), r, g, b);
+
+  // Draw the grey/silver gradient (for the border)
+  cr = cairo_create (background);
+  cairo_utils_clip_round_edge (cr, width, height,
+      STANDARD_MENU_BOX_CORNER_RADIUS, STANDARD_MENU_BOX_CORNER_RADIUS,
+      STANDARD_MENU_BOX_CORNER_RADIUS);
+
+  linpat = cairo_pattern_create_linear (width, 0, width, height);
+
+  cairo_pattern_add_color_stop_rgb (linpat, 0.0, 0.3, 0.3, 0.3);
+  cairo_pattern_add_color_stop_rgb (linpat, 1.0, 0.7, 0.7, 0.7);
+
+  cairo_set_source (cr, linpat);
+  cairo_paint_with_alpha (cr, 0.5);
+
+  // Clear the inside of the gradient in order to create a border
+  cairo_utils_clip_round_edge (cr, width, height,
+      STANDARD_MENU_BOX_CORNER_RADIUS + STANDARD_MENU_BOX_BORDER_WIDTH,
+      STANDARD_MENU_BOX_CORNER_RADIUS + STANDARD_MENU_BOX_BORDER_WIDTH,
+      STANDARD_MENU_BOX_CORNER_RADIUS);
+
+  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
+  cairo_paint (cr);
+
+  // Add a 40% alpha black filter inside, creating a frame around the button
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+  cairo_set_source_rgb (cr, 0, 0, 0);
+  cairo_paint_with_alpha (cr, 0.4);
+
+  // Draw the actual button
+  cairo_set_source_surface (cr, dbg, STANDARD_MENU_BOX_X, STANDARD_MENU_BOX_Y);
+  cairo_paint (cr);
+  cairo_set_source_surface (cr, bg, STANDARD_MENU_BOX_X + done_width, STANDARD_MENU_BOX_Y);
+  cairo_paint (cr);
+  cairo_destroy (cr);
+  cairo_pattern_destroy (linpat);
+  cairo_surface_destroy (bg);
+
+  return background;
+}
+
+void standard_menu_update_gauge (Menu *menu, unsigned int percent) {
+  CairoMenuItem *item = &menu->menu->items[0];
+  char percent_text[6];
+  cairo_surface_t *gauge;
+
+  if (percent > 100)
+    percent = 100;
+
+  gauge = create_standard_gauge (STANDARD_MENU_ITEM_BOX_WIDTH,
+      STANDARD_MENU_ITEM_BOX_HEIGHT, percent, 0.4, 0.2, 0.2, 0, 0, 0);
+  snprintf (percent_text, sizeof(percent_text), "%d%%", percent);
+
+  //item->enabled = FALSE;
+  if (item->text)
+    free (item->text);
+  item->text = strdup (percent_text);
+  cairo_surface_destroy (item->bg_image);
+  cairo_surface_destroy (item->bg_sel_image);
+  item->bg_image = cairo_surface_reference (gauge);
+  item->bg_sel_image = cairo_surface_reference (gauge);
+  cairo_surface_destroy (gauge);
 }

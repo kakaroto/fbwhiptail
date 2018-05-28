@@ -443,7 +443,7 @@ cairo_menu_add_item_full (CairoMenu *menu, cairo_surface_t *image,
   item->index = menu->nitems - 1;
   item->image = NULL;
   item->image_position = image_position;
-  item->text = strdup (text);
+  item->text = text ? strdup (text) : NULL;
   item->text_size = text_size;
   item->text_color = text_color;
   item->alignment = alignment;

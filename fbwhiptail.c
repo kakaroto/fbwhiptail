@@ -83,7 +83,12 @@ static gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
   } else
     return TRUE;
 
-  cairo_menu_handle_input (menu->menu, input, &bbox);
+  if (menu->gauge) {
+    static int gauge_value = 0;
+    standard_menu_update_gauge (menu, gauge_value++);
+  } else {
+    cairo_menu_handle_input (menu->menu, input, &bbox);
+  }
   gtk_widget_queue_draw_area (widget, 0, 0, menu->width, menu->height);
   return TRUE;
 }
@@ -201,7 +206,6 @@ void print_usage (int exit_code)
   printf ("\t--radiolist <text> <height> <width> <listheight> [tag item status]...\n");
   printf ("\t\tThis option is not supported\n");
   printf ("\t--gauge <text> <height> <width> <percent>\n");
-  printf ("\t\tThis option is not supported\n");
   printf ("Options: (depend on box-option)\n");
   printf ("\t--clear\t\t\t\tclear screen on exit\n");
   printf ("\t--defaultno\t\t\tdefault no button\n");
@@ -289,6 +293,21 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->topleft = 1;
       } else if (strcmp (argv[i], "--clear") == 0) {
         args->clear = 1;
+      } else if (strcmp (argv[i], "--gauge") == 0) {
+        if (args->mode != MODE_NONE)
+          goto mode_already_set;
+        if (i + 4 >= argc)
+          goto missing_value;
+        args->text = argv[i+1];
+        args->height = atoi (argv[i+2]);
+        args->width = atoi (argv[i+3]);
+        args->gauge_percent = atoi (argv[i+4]);
+        if (args->gauge_percent < 0)
+          args->gauge_percent = 0;
+        if (args->gauge_percent > 100)
+          args->gauge_percent = 100;
+        i += 4;
+        args->mode = MODE_GAUGE;
       } else if (strcmp (argv[i], "--menu") == 0) {
         if (args->mode != MODE_NONE)
           goto mode_already_set;
@@ -595,6 +614,12 @@ int main(int argc, char **argv)
     menu = standard_menu_create (args.title, args.text, args.text_size,
         xres, yres, -1, 1);
     standard_menu_add_item (menu, args.ok_button, 20);
+  } else if (args.mode == MODE_GAUGE) {
+    menu = standard_menu_create (args.title, args.text, args.text_size,
+        xres, yres, -1, 1);
+    menu->gauge = 1;
+    standard_menu_add_item (menu, "Gauge", 20);
+    standard_menu_update_gauge (menu, args.gauge_percent);
   }
   if (args.background_png)
     menu->background = load_image_and_scale (args.background_png, xres, yres);
