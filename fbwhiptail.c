@@ -277,6 +277,12 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
   args->background_grad_rgb[3] = 0.6;
   args->background_grad_rgb[4] = 0.6;
   args->background_grad_rgb[5] = 0.6;
+  args->gauge_rgb[0] = 0.5;
+  args->gauge_rgb[1] = 0.2;
+  args->gauge_rgb[2] = 0.2;
+  args->gauge_rgb[3] = 0.1;
+  args->gauge_rgb[4] = 0.1;
+  args->gauge_rgb[5] = 0.1;
   args->text_size = 20;
 
   for (i = 1; i < argc; i++) {
@@ -404,6 +410,18 @@ int parse_whiptail_args (int argc, char **argv, whiptail_args *args)
         args->background_grad_rgb[3] = (float) atoi (argv[i+4]) / 256;
         args->background_grad_rgb[4] = (float) atoi (argv[i+5]) / 256;
         args->background_grad_rgb[5] = (float) atoi (argv[i+6]) / 256;
+        i += 6;
+      } else if (strcmp (argv[i], "--gauge-rgb") == 0) {
+        // FBwhiptail specific arguments
+        if (i + 6 >= argc)
+          goto missing_value;
+
+        args->gauge_rgb[0] = (float) atoi (argv[i+1]) / 256;
+        args->gauge_rgb[1] = (float) atoi (argv[i+2]) / 256;
+        args->gauge_rgb[2] = (float) atoi (argv[i+3]) / 256;
+        args->gauge_rgb[3] = (float) atoi (argv[i+4]) / 256;
+        args->gauge_rgb[4] = (float) atoi (argv[i+5]) / 256;
+        args->gauge_rgb[5] = (float) atoi (argv[i+6]) / 256;
         i += 6;
       } else if (strcmp (argv[i], "--text-size") == 0) {
         // FBwhiptail specific arguments
@@ -640,6 +658,12 @@ int main(int argc, char **argv)
     menu = standard_menu_create (args.title, args.text, args.text_size,
         xres, yres, -1, 1);
     menu->gauge = 1;
+    menu->gauge_rgb[0] = args.gauge_rgb[0];
+    menu->gauge_rgb[1] = args.gauge_rgb[1];
+    menu->gauge_rgb[2] = args.gauge_rgb[2];
+    menu->gauge_rgb[3] = args.gauge_rgb[3];
+    menu->gauge_rgb[4] = args.gauge_rgb[4];
+    menu->gauge_rgb[5] = args.gauge_rgb[5];
     standard_menu_add_item (menu, "Gauge", 20);
     standard_menu_update_gauge (menu, args.gauge_percent);
   }

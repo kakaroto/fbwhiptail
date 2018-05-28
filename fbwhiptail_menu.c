@@ -552,7 +552,9 @@ void standard_menu_update_gauge (Menu *menu, unsigned int percent) {
     percent = 100;
 
   gauge = create_standard_gauge (STANDARD_MENU_ITEM_BOX_WIDTH,
-      STANDARD_MENU_ITEM_BOX_HEIGHT, percent, 0.4, 0.2, 0.2, 0, 0, 0);
+      STANDARD_MENU_ITEM_BOX_HEIGHT, percent,
+      menu->gauge_rgb[0], menu->gauge_rgb[1], menu->gauge_rgb[2],
+      menu->gauge_rgb[3], menu->gauge_rgb[4], menu->gauge_rgb[5]);
   snprintf (percent_text, sizeof(percent_text), "%d%%", percent);
 
   //item->enabled = FALSE;

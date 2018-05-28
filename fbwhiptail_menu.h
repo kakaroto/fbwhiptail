@@ -38,6 +38,7 @@ struct Menu_s {
   cairo_surface_t *background;
   CairoMenu *menu;
   int gauge;
+  float gauge_rgb[6];
   int width;
   int height;
   const char *title;
@@ -86,6 +87,7 @@ typedef struct {
   // FBwhiptail arguments
   char *background_png;
   float background_grad_rgb[6];
+  float gauge_rgb[6];
   int text_size;
 } whiptail_args;
 
