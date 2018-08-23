@@ -1,0 +1,8 @@
+This software is distributed under the LGPL v2.1 license, the GPL v3 License and the MIT license (depending on the files).
+Each .c/.h file references which license it is under.
+
+The cairo menu parts (cairo_menu.[ch], cairo_utils.[ch], cairo_dri.[ch], test-dri.c) are under the LGPL license and can be used separately as a library under that license. See License.LGPL for more information.
+The cairo frambuffer surface implementation (cairo_linuxfb.[ch]) is under the MIT license as most of its code was taken from an existing project under that license. See LICENSE.MIT for more information about the license governing that specific file.
+The fbwhiptail application code itself (fbwhiptail.c, fbwhiptail_menu.[ch], test-menu-fb.c, test-menu-gtk.c, whiptail) are under the GPL v3 license. See LICENSE.GPL for more information.
+
+If a file does not have a license header or is not specified in the above list, then the license that governs it will depend on its function, if it is specifically related to the cairo menu implementation, then it's LGPL, if it's specifically related to the fbwhiptail application, then it's GPL.
